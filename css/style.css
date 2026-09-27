@@ -1187,8 +1187,7 @@ html.js .pst.hmr .ly-e{opacity:1;visibility:visible;transition:none}
   background:repeating-linear-gradient(180deg,transparent 0 62%,rgba(0,0,0,.55) 62% 64%,transparent 64% 66%),linear-gradient(90deg,#15161a,#4a4d56 42%,#1b1c20 70%,#0d0e10);
   background-size:100% 100%,100% 100%;box-shadow:0 20px 40px rgba(0,0,0,.5)}
 .hm-handle::after{content:"";position:absolute;left:-12%;right:-12%;bottom:0;height:38%;border-radius:0 0 12px 12px;background:repeating-linear-gradient(180deg,#26272c 0 10px,#0f1012 10px 13px)}
-.hm-crack{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
-.hm-crack path{fill:none;stroke:rgba(246,246,243,.8);stroke-width:1.6;stroke-dasharray:1;stroke-dashoffset:1;stroke-linecap:round;filter:drop-shadow(0 0 3px rgba(77,163,255,.55))}
+.hm-crack{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
 .hm-flash{position:absolute;inset:0;z-index:6;pointer-events:none;background:radial-gradient(circle at var(--fx,50%) var(--fy,45%),rgba(170,210,255,.55),rgba(77,163,255,0) 60%);opacity:0}
 
 /* =========================================================
@@ -1260,7 +1259,7 @@ html.js .pst.bz .ring-wrap{transition:none}
    ========================================================= */
 .focus{will-change:auto}
 .lx,.lx-card,.lx-sh,.lx-txt{will-change:auto}
-.lx-card path,.hm-crack path{filter:none}
+.lx-card path{filter:none}
 .lx-card::before{filter:none;inset:-4% -2%;background:radial-gradient(closest-side,rgba(0,0,0,.75),transparent);transform:translateZ(-60px) translateY(24px)}
 .wk-glow{filter:none}
 .hero-bg{will-change:auto}
@@ -1313,3 +1312,34 @@ html.js .wk-stage{overflow:clip visible;overflow-x:clip;overflow-y:visible;
 .gv-stage{overflow:visible}
 .gv-cv{height:200%;bottom:auto}
 .wk-side{display:none}
+/* GIVE v2: the canvas is a screen-sized layer on top, so falling pieces are never cut off */
+.gv-cv{position:fixed;inset:0;width:100vw;height:100vh;z-index:26;pointer-events:none}
+
+/* v11 — the motto never breaks mid-word on phones */
+.motto-type{font-size:clamp(44px,13.5vw,210px)}
+.motto-type>span{white-space:nowrap}
+
+/* =========================================================
+   SMALL WINS v11 — scroll-scrubbed (JS drives every value; big screens pin the scene)
+   ========================================================= */
+.win-feat[data-scrub] .wf-main{clip-path:none;rotate:y var(--wy,0deg)}
+.win-feat[data-scrub] .wf-main::before,.win-feat[data-scrub] .wf-main::after{display:none}
+.win-feat[data-scrub] .wf-main img,.win-feat[data-scrub]:hover .wf-main img{transform:scale(calc(1.16 - var(--wk,1) * .16));transition:none}
+.win-feat[data-scrub]{perspective:1400px}
+.wf-blocks{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+.wf-th{display:block}
+.win-feat[data-scrub] .wf-points li{transition:none}
+.win-feat[data-scrub] .wf-points li::before{transform:translateY(calc((1 - var(--lk,1)) * -46px)) rotate(calc((1 - var(--lk,1)) * 200deg));opacity:var(--lk,1)}
+.win-feat[data-scrub] .stamp{animation:none;position:relative;will-change:transform}
+.win-feat[data-scrub] .stamp::after{content:"";position:absolute;inset:-7px;border:2px solid var(--blue);border-radius:10px;pointer-events:none;opacity:calc((1 - var(--sr,1)) * var(--so,0));transform:scale(calc(1 + var(--sr,1) * .9))}
+.win-feat[data-scrub] .wf-stats{margin-top:2px}
+.win-feat[data-scrub] .wf-points{margin-top:4px}
+.wf-stats dt .count{display:inline-block;min-width:3.6ch;text-align:right}
+@media (min-width:900px) and (min-height:700px){
+  .wx-pin{height:300vh;height:300svh}
+  .wx-stage{max-width:1180px;position:sticky;top:0;height:100vh;height:100svh;display:flex;flex-direction:column;justify-content:center;padding-top:calc(var(--nav-h, 72px) * .6)}
+  .wx-stage .wf-en{font-size:clamp(44px,min(6vw,8.6vh),96px)}
+  .wx-stage .wf-text h3{font-size:clamp(30px,min(3.4vw,5vh),50px)}
+  .wx-stage .wf-text{gap:clamp(10px,1.8vh,18px)}
+  .wx-stage .wf-main{width:min(100%,calc(100vh - 180px));justify-self:center}
+}

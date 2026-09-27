@@ -983,7 +983,8 @@
     const to = +num.dataset.to || 0;
     const fmt = v => Math.round(v).toLocaleString('en-US');
     const below = feat.getBoundingClientRect().top > innerHeight * 0.8;
-    if (!below) feat.classList.add('go');
+    if (feat.hasAttribute('data-scrub')) feat.classList.add('go');   // the scroll drives it (see SMALL WINS v11 below)
+    else if (!below) feat.classList.add('go');
     else {
       num.textContent = '0';
       const fio = new IntersectionObserver(es => es.forEach(e => {
@@ -1204,7 +1205,7 @@
       { k: 'c0', sc: 'C', len: 1 },
       { k: 'cd', sc: 'C', st: 'c0 cd', len: 1 },           // the circle opens (scrubbed)
       { k: 'd0', sc: 'D', len: 1 }, { k: 'd1', sc: 'D', len: 1 },
-      { k: 'hm', sc: 'D', st: 'd1 hmr', len: 2.6 },          // FAIL FAST becomes a hammer and smashes the screen (scrubbed)
+      { k: 'hm', sc: 'D', st: 'd1 hmr', len: 4.2 },          // FAIL FAST becomes a hammer and smashes the screen (scrubbed)
       { k: 'e0', sc: 'E', len: 1 },
       { k: 'ef', sc: 'E', st: 'e0 ef', len: 1 },           // the page slides off to the right, "So I grabbed it" slides in (scrubbed)
       { k: 'f0', sc: 'F', len: 1 }];
@@ -1591,72 +1592,201 @@
       zw.style.setProperty('--zto', Math.max(0, Math.min(1, (e - .62) / .3)).toFixed(3));
     };
 
-    /* ---- FAIL FAST. LEARN FAST. → a hammer: it forms, winds up, smashes the screen, the cracked page falls away ---- */
-    const hmRot = $('.hm-rot', pst), hmHandle = $('.hm-handle', pst), hmCrack = $('.hm-crack', pst), hmFlash = $('.hm-flash', pst);
+    /* ---- FAIL FAST. LEARN FAST. → a hammer: it forms, winds up, smashes the screen, the screen breaks apart
+            (a crater, glass shards, dead-pixel ink, LCD lines), a second crunch, a long look at the damage,
+            then the broken page falls away ---- */
+    const hmRot = $('.hm-rot', pst), hmCv = $('.hm-crack', pst), hmFlash = $('.hm-flash', pst);
+    const hg = hmCv.getContext('2d');
     const dVs = $('.d-vs', pst), dMotto = $('.d-motto', pst);
-    let HM = null, hmLast = -1, crackPaths = [];
+    let HM = null, hmLast = -1, hmDrawn = -2;
+    // the timeline of the smash (t = 0…1 over the whole 'hm' segment)
+    const T_HIT = .36, T_AFTER = .6, T_FALL = .84;
     const hmLayout = () => {
       // a side swing like a windshield wiper: the pivot sits bottom-left, the head sweeps up and across and hits
-      const mob = W < 760, hw = Math.min(480, W * (mob ? .5 : .36)), hh = hw * .3, hl = Math.min(H * (mob ? .36 : .38), W * (mob ? .55 : .4));
+      const mob = W < 760, hw = Math.min(480, W * (mob ? .5 : .36)), hh = hw * .3, hl = Math.min(H * (mob ? .42 : .55), W * (mob ? .8 : .42));
       pst.style.setProperty('--hw', hw.toFixed(0) + 'px'); pst.style.setProperty('--hh', hh.toFixed(0) + 'px'); pst.style.setProperty('--hl', hl.toFixed(0) + 'px');
-      const piv = { x: W * (mob ? .28 : .27), y: H * .97 }, Lh = hl + hh / 2, END = mob ? 30 : 58, ar = END * Math.PI / 180;
-      HM = { hw, hh, hl, piv, END, hit: { x: piv.x + Math.sin(ar) * Lh + Math.cos(ar) * hw * .45, y: piv.y - Math.cos(ar) * Lh + Math.sin(ar) * hw * .45 } };
-      // the crack: a spider-web from the impact point
-      const ns = 'http://www.w3.org/2000/svg';
-      hmCrack.setAttribute('viewBox', `0 0 ${W} ${H}`); hmCrack.innerHTML = '';
+      // it lands near the middle of the screen, so the damage is right in your face
+      const piv = { x: W * (mob ? .24 : .27), y: H * .97 }, Lh = hl + hh / 2, END = mob ? 12 : 32, WIND = mob ? -34 : -46, ar = END * Math.PI / 180;
+      const hit = { x: piv.x + Math.sin(ar) * Lh + Math.cos(ar) * hw * .45, y: piv.y - Math.cos(ar) * Lh + Math.sin(ar) * hw * .45 };
+      const dpr = Math.min(1.5, devicePixelRatio || 1);
+      hmCv.width = Math.round(W * dpr); hmCv.height = Math.round(H * dpr);
       let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-      const cx = HM.hit.x, cy = HM.hit.y, Rm = Math.hypot(W, H) * .62, n = 15, rays = [];
+      const D = Math.hypot(W, H), cx = hit.x, cy = hit.y, n = mob ? 14 : 22;
+      // a spider-web: rays with a vertex on every ring
+      const RK = [.028, .065, .115, .18, .27, .39, .54, .74].map(r => r * D);
+      const rays = [];
       for (let i = 0; i < n; i++) {
-        const a0 = i / n * Math.PI * 2 + (rnd() - .5) * .3, pts = [[cx, cy]];
-        let r = 0, a = a0;
-        while (r < Rm) { r += 40 + rnd() * 90; a += (rnd() - .5) * .22; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+        let a = i / n * Math.PI * 2 + (rnd() - .5) * Math.PI / n;
+        const pts = [[cx, cy]];
+        RK.forEach(R => { a += (rnd() - .5) * .14; const r = R * (.82 + rnd() * .36); pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); });
         rays.push(pts);
       }
-      crackPaths = [];
-      const add = (d, delay) => { const p = document.createElementNS(ns, 'path'); p.setAttribute('d', d); p.setAttribute('pathLength', '1'); hmCrack.appendChild(p); crackPaths.push({ p, delay }); };
-      rays.forEach(pts => add('M' + pts.map(q => q[0].toFixed(0) + ' ' + q[1].toFixed(0)).join('L'), 0));
-      [1, 2, 3, 5].forEach((ring, ri) => rays.forEach((pts, i) => {
-        const nx = rays[(i + 1) % n], A = pts[Math.min(ring, pts.length - 1)], B = nx[Math.min(ring, nx.length - 1)];
-        if (rnd() < .78) add(`M${A[0].toFixed(0)} ${A[1].toFixed(0)}Q${((A[0] + B[0]) / 2 + (rnd() - .5) * 30).toFixed(0)} ${((A[1] + B[1]) / 2 + (rnd() - .5) * 30).toFixed(0)} ${B[0].toFixed(0)} ${B[1].toFixed(0)}`, .25 + ri * .18);
-      }));
-      hmLast = -1;
+      // ring pieces between neighbouring rays (dense near the hit, sparse far out)
+      const rings = [];
+      for (let k = 1; k <= RK.length; k++) rays.forEach((pts, i) => {
+        if (rnd() > (k <= 2 ? .96 : k <= 4 ? .8 : .52)) return;
+        const A = pts[k], B = rays[(i + 1) % n][k], bend = (rnd() - .5) * RK[k - 1] * .25;
+        rings.push({ k, A, B, m: [(A[0] + B[0]) / 2 + bend, (A[1] + B[1]) / 2 + bend * .6] });
+      });
+      // glass cells between two rays and two rings: the inner ones break out and fall, leaving black holes
+      const cells = [];
+      for (let k = 0; k < 5; k++) rays.forEach((pts, i) => {
+        const nx = rays[(i + 1) % n], poly = k ? [pts[k], nx[k], nx[k + 1], pts[k + 1]] : [pts[0], nx[1], pts[1]];
+        const c = poly.reduce((s, q) => [s[0] + q[0] / poly.length, s[1] + q[1] / poly.length], [0, 0]);
+        const falls = k === 0 || (k === 1 && rnd() < .72) || (k === 2 && rnd() < .46) || (k === 3 && rnd() < .16);
+        const glint = k <= 2 || rnd() < .35;
+        if (!falls && !glint) return;
+        const out = Math.atan2(c[1] - cy, c[0] - cx);
+        cells.push({ k, poly, c, falls, glint,
+          td: k === 0 ? T_HIT : k === 1 ? T_HIT + .05 + rnd() * .14 : k === 2 ? T_AFTER + .02 + rnd() * .12 : T_AFTER + .08 + rnd() * .14,
+          a: .025 + rnd() * (k < 2 ? .13 : .07), blue: rnd() < .22,
+          dx: Math.cos(out) * (1 + rnd() * 4), dy: Math.sin(out) * (1 + rnd() * 4),
+          vx: (rnd() - .5) * 120, rot: (rnd() - .5) * 3, g: .8 + rnd() * .7 });
+      });
+      // crushed glass right at the crater, and a puff of dust
+      const powder = Array.from({ length: mob ? 34 : 60 }, () => { const a = rnd() * Math.PI * 2, r = rnd() * RK[1] * 1.15, l = 3 + rnd() * 14; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r, a + (rnd() - .5) * 1.4, l]; });
+      const dust = Array.from({ length: mob ? 22 : 40 }, () => ({ a: -Math.PI * rnd() * 1.1 - .1 * Math.PI, v: (.08 + rnd() * .22) * D, s: 1.5 + rnd() * 3.5, g: .5 + rnd() }));
+      // a broken LCD: bright vertical lines + a few horizontal glitch bands
+      const lines = Array.from({ length: mob ? 5 : 9 }, (_, j) => ({ x: clamp(cx + (rnd() - .5) * W * .95, 4, W - 4), w: rnd() < .25 ? 6 + rnd() * 10 : 1 + rnd() * 2.5,
+        c: ['77,163,255', '246,246,243', '43,120,204', '160,205,255'][(rnd() * 4) | 0], a: .35 + rnd() * .55, at: j < (mob ? 3 : 5) ? T_HIT : T_AFTER, s: rnd() * 50 }));
+      const bands = Array.from({ length: mob ? 3 : 5 }, () => ({ y: clamp(cy + (rnd() - .5) * H * .9, 0, H), h: 2 + rnd() * 12, x: rnd() * W * .5, w: W * (.3 + rnd() * .7), at: rnd() < .5 ? T_HIT : T_AFTER }));
+      HM = { hw, hh, hl, piv, END, WIND, hit, dpr, D, RK, rays, rings, cells, powder, dust, lines, bands };
+      hmLast = -1; hmDrawn = -2;
     };
+    // draw a polyline up to a float vertex index
+    const polyTo = (pts, v) => {
+      if (v <= 0) return;
+      hg.moveTo(pts[0][0], pts[0][1]);
+      const k = Math.min(pts.length - 1, Math.floor(v));
+      for (let j = 1; j <= k; j++) hg.lineTo(pts[j][0], pts[j][1]);
+      const f = v - k;
+      if (f > 0 && k < pts.length - 1) { const A = pts[k], B = pts[k + 1]; hg.lineTo(A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f); }
+    };
+    const cellPath = (poly, ox = 0, oy = 0) => { hg.moveTo(poly[0][0] + ox, poly[0][1] + oy); for (let j = 1; j < poly.length; j++) hg.lineTo(poly[j][0] + ox, poly[j][1] + oy); hg.closePath(); };
+    function hmDraw(t) {
+      if (Math.abs(t - hmDrawn) < .0004) return;
+      hmDrawn = t;
+      const { dpr, D, RK, rays, rings, cells, powder, dust, lines, bands, hit } = HM;
+      hg.setTransform(1, 0, 0, 1, 0, 0); hg.clearRect(0, 0, hmCv.width, hmCv.height);
+      if (t < T_HIT) return;
+      hg.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const e = u => 1 - Math.pow(1 - clamp(u), 3);
+      const c1 = e((t - T_HIT) / .045), c3 = e((t - T_AFTER) / .08), fall = clamp((t - T_FALL) / .2);
+      const flick = (s, sp = 90) => .62 + .38 * Math.sin(t * sp + s) * Math.sin(t * sp * 1.7 + s * 2.3);
+      // 1) dead pixels: dark ink spreading out from the crater (blue at the edge)
+      const rb = D * (.05 + .16 * c1 + .16 * e((t - T_HIT) / .38) + .1 * c3);
+      let gr = hg.createRadialGradient(hit.x, hit.y, 0, hit.x, hit.y, rb);
+      gr.addColorStop(0, 'rgba(0,0,0,.94)'); gr.addColorStop(.5, 'rgba(0,0,0,.72)'); gr.addColorStop(.82, 'rgba(12,40,90,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      hg.fillStyle = gr; hg.fillRect(hit.x - rb, hit.y - rb, rb * 2, rb * 2);
+      const b2x = hit.x + RK[3] * .9, b2y = hit.y + RK[2] * .7, r2 = rb * .55 * c3;
+      if (r2 > 2) { gr = hg.createRadialGradient(b2x, b2y, 0, b2x, b2y, r2); gr.addColorStop(0, 'rgba(0,0,0,.8)'); gr.addColorStop(.7, 'rgba(8,28,64,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); hg.fillStyle = gr; hg.fillRect(b2x - r2, b2y - r2, r2 * 2, r2 * 2); }
+      // 2) broken LCD lines + glitch bands (they flicker as you scroll)
+      lines.forEach(l => { if (t < l.at) return; const a = l.a * flick(l.s) * (t < l.at + .015 ? 1.6 : 1); hg.fillStyle = `rgba(${l.c},${clamp(a).toFixed(3)})`; hg.fillRect(l.x, 0, l.w, H); });
+      bands.forEach((b, j) => { if (t < b.at) return; const sh = Math.sin(t * 70 + j * 9) * 18; hg.fillStyle = 'rgba(77,163,255,.14)'; hg.fillRect(b.x + sh, b.y, b.w, b.h); hg.fillStyle = 'rgba(246,246,243,.35)'; hg.fillRect(b.x + sh, b.y, b.w, 1); });
+      // 3) the web of cracks: rays reach the 4th ring on impact, the rest at the second crunch
+      const v = 4 * c1 + (RK.length - 4) * c3;
+      hg.lineCap = 'round'; hg.lineJoin = 'round';
+      hg.beginPath(); rays.forEach(p => polyTo(p, Math.min(v, 3))); hg.strokeStyle = 'rgba(77,163,255,.22)'; hg.lineWidth = 5; hg.stroke();
+      hg.beginPath(); rays.forEach(p => polyTo(p, v)); hg.strokeStyle = 'rgba(246,246,243,.78)'; hg.lineWidth = 1.5; hg.stroke();
+      hg.beginPath();
+      rings.forEach(r => {
+        const f = clamp((v - r.k + .2) * 1.6); if (f <= 0) return;
+        hg.moveTo(r.A[0], r.A[1]);
+        if (f >= 1) hg.quadraticCurveTo(r.m[0], r.m[1], r.B[0], r.B[1]);
+        else hg.lineTo(r.A[0] + (r.B[0] - r.A[0]) * f, r.A[1] + (r.B[1] - r.A[1]) * f);
+      });
+      hg.strokeStyle = 'rgba(246,246,243,.55)'; hg.lineWidth = 1.1; hg.stroke();
+      // 4) glass cells: pushed in by the blow, the inner ones break out one by one and fall (holes stay)
+      cells.forEach(q => {
+        const out = q.falls && t >= q.td;
+        if (out) {                                                     // the hole left behind
+          hg.beginPath(); cellPath(q.poly); hg.fillStyle = '#020203'; hg.fill();
+          hg.strokeStyle = 'rgba(77,163,255,.55)'; hg.lineWidth = 1; hg.stroke();
+        }
+      });
+      cells.forEach(q => {
+        if (q.k > 0 && t < T_HIT + .004) return;
+        const out = q.falls && t >= q.td;
+        let ft = out ? clamp((t - q.td) / .13) : 0;
+        if (!out && q.k <= 2 && fall > 0) ft = fall;                  // whatever is still stuck lets go when the page drops
+        if (q.k === 0 && out) ft = clamp((t - T_HIT) / .06);           // the crater is punched straight in
+        if (ft >= 1 || (!q.glint && !out)) return;
+        const vis = clamp(v - q.k - .3);                             // glass only shows where the cracks have reached
+        if (vis <= 0 && !out) return;
+        const px = q.dx * c1 + q.vx * ft, py = q.dy * c1 + ft * ft * H * .9 * q.g;
+        const al = (1 - ft * ft * ft) * (out ? 1 : vis);
+        hg.save();
+        if (ft > 0) { hg.translate(q.c[0] + px, q.c[1] + py); hg.rotate(q.rot * ft); hg.translate(-q.c[0], -q.c[1]); } else hg.translate(px, py);
+        hg.beginPath(); cellPath(q.poly);
+        hg.fillStyle = q.blue ? `rgba(77,163,255,${(q.a * 1.3 * al).toFixed(3)})` : `rgba(246,246,243,${(q.a * al).toFixed(3)})`; hg.fill();
+        if (ft > 0 || q.k <= 1) { hg.strokeStyle = `rgba(246,246,243,${(.6 * al).toFixed(3)})`; hg.lineWidth = 1; hg.stroke(); }
+        hg.restore();
+      });
+      // 5) crushed glass at the crater + a puff of dust
+      hg.beginPath();
+      powder.forEach(p => { hg.moveTo(p[0], p[1]); hg.lineTo(p[0] + Math.cos(p[2]) * p[3] * c1, p[1] + Math.sin(p[2]) * p[3] * c1); });
+      hg.strokeStyle = 'rgba(246,246,243,.7)'; hg.lineWidth = 1; hg.stroke();
+      const dt = clamp((t - T_HIT) / .14);
+      if (dt > 0 && dt < 1) {
+        hg.fillStyle = `rgba(210,225,245,${(.8 * (1 - dt)).toFixed(3)})`;
+        dust.forEach(d => { const k = e(dt), x = hit.x + Math.cos(d.a) * d.v * k, y = hit.y + Math.sin(d.a) * d.v * k + dt * dt * H * .5 * d.g; hg.fillRect(x, y, d.s, d.s); });
+      }
+    }
     function hammer(t) {                                    // t: 0 = the motto, 1 = the page has fallen away
       if (t < 0) {
-        if (hmLast !== -1) { dLay.style.transform = ''; pst.style.removeProperty('--mo'); if (dVs) dVs.style.opacity = ''; hmLast = -1; if (HM) HM.m = null; }
+        if (hmLast !== -1) { dLay.style.transform = ''; pst.style.removeProperty('--mo'); if (dVs) dVs.style.opacity = ''; hmLast = -1; if (HM) HM.m = null; hmDrawn = -2; }
         return;
       }
       if (!HM) hmLayout();
-      if (reduce) t = t < .5 ? 0 : 1;
+      if (reduce) t = t < .5 ? .7 : 1;
       const lerp = (a, b, k) => a + (b - a) * k;
       const { hw, hh, hl, hit } = HM;
       // where the small motto sits (the hammer head starts exactly there)
       if (!HM.m) { const mr = dMotto.getBoundingClientRect(), pr = pst.getBoundingClientRect(); HM.m = { x: mr.left + mr.width / 2 - pr.left, y: mr.top + mr.height / 2 - pr.top, s: Math.min(1, mr.width / hw) }; }
       const mx = HM.m.x, my = HM.m.y, s0 = HM.m.s;
-      // 0–.14 the words fade out · .14–.32 the hammer forms · .32–.52 wind up · .52–.6 swing · .6 impact · .74–1 the page falls
-      const f1 = ease(clamp((t - .14) / .18)), f2 = ease(clamp((t - .32) / .2)), f3 = clamp((t - .52) / .08), f4 = clamp((t - .6) / .08), f5 = ease(clamp((t - .74) / .26));
-      const { piv, END } = HM;
+      // 0–.08 the words fade · .08–.2 the hammer forms · .2–.31 wind up · .31–.36 swing · .36 IMPACT
+      // .36–.54 the screen breaks, shards drop out · .6 the second hit, the cracks run across the whole screen
+      // .6–.84 it just sits there, wrecked and sagging · .84–1 the broken page falls away
+      const f1 = ease(clamp((t - .08) / .12)), f2 = ease(clamp((t - .2) / .11)), f3 = clamp((t - .31) / (T_HIT - .31)), f5 = ease(clamp((t - T_FALL) / (1 - T_FALL)));
+      const { piv, END, WIND } = HM;
       const sc = lerp(s0, 1, f1);
       const x = lerp(mx, piv.x, f1), y = lerp(my + (hl + hh / 2) * s0, piv.y, f1);
-      // stands up (-18°) → pulled back to the left (-72°) → whips across to the right (END) and hits → small recoil
-      const ang = f3 > 0 ? lerp(-46, END, f3 * f3) - 7 * Math.sin(f4 * Math.PI) : lerp(0, -12, f1) + lerp(0, -34, f2);
+      // stands up → pulled back to the left → whips across (END) and HITS → bounces off → rests …
+      // → pulled back again → HITS again, harder → bounces off → rests while you look at the damage
+      const S2 = T_AFTER - .014;
+      let ang;
+      if (t < .31) ang = lerp(0, -12, f1) + lerp(0, WIND + 12, f2);
+      else if (t < T_HIT) ang = lerp(WIND, END, f3 * f3);
+      else if (t < S2) ang = END - 11 * ease(clamp((t - T_HIT) / .07)) - 16 * ease(clamp((t - (S2 - .07)) / .065));
+      else if (t < T_AFTER) { const k = (t - S2) / (T_AFTER - S2); ang = lerp(END - 27, END + 2, k * k); }
+      else ang = END + 2 - 21 * ease(clamp((t - T_AFTER) / .08));
       hmRot.style.transform = `translate(${(x - hw / 2).toFixed(1)}px, ${(y - hh - hl).toFixed(1)}px) rotate(${ang.toFixed(2)}deg) scale(${sc.toFixed(3)})`;
-      hmRot.style.opacity = (t < .14 ? 0 : 1 - clamp((t - .64) / .08)).toFixed(3);
+      hmRot.style.opacity = t < .08 ? 0 : 1;
       hmRot.style.setProperty('--hs', f1.toFixed(3)); hmRot.style.setProperty('--hb', clamp(f1 * 1.5).toFixed(3));
-      pst.style.setProperty('--mo', t >= .14 ? '0' : '1');
-      if (dVs) dVs.style.opacity = (1 - clamp(t / .12)).toFixed(3);
-      // impact
-      const c = clamp((t - .6) / .08);
-      crackPaths.forEach(q => { q.p.style.strokeDashoffset = (1 - clamp((c - q.delay) / (1 - q.delay * .6))).toFixed(3); });
-      hmFlash.style.opacity = (t >= .6 ? Math.max(0, 1 - (t - .6) / .07) : 0).toFixed(3);
-      hmFlash.style.setProperty('--fx', HM.hit.x.toFixed(0) + 'px'); hmFlash.style.setProperty('--fy', HM.hit.y.toFixed(0) + 'px');
-      if (hmLast >= 0 && hmLast < .6 && t >= .6 && !reduce) {
-        sound.play('impact');
-        pst.animate([{ transform: 'none' }, { transform: 'translate(14px,-3px)' }, { transform: 'translate(-9px,4px)' }, { transform: 'translate(4px,-1px)' }, { transform: 'none' }], { duration: 420, easing: 'ease-out' });
-        if (navigator.vibrate) try { navigator.vibrate(40); } catch (_) {}
+      pst.style.setProperty('--mo', t >= .08 ? '0' : '1');
+      if (dVs) dVs.style.opacity = (1 - clamp(t / .07)).toFixed(3);
+      hmDraw(t);
+      const fl = t >= T_HIT ? Math.max(0, 1 - (t - T_HIT) / .06) : 0, fl2 = t >= T_AFTER ? Math.max(0, .6 - (t - T_AFTER) / .07) : 0;
+      hmFlash.style.opacity = Math.max(fl, fl2).toFixed(3);
+      hmFlash.style.setProperty('--fx', hit.x.toFixed(0) + 'px'); hmFlash.style.setProperty('--fy', hit.y.toFixed(0) + 'px');
+      if (hmLast >= 0 && !reduce) {
+        const cross = v => (hmLast < v && t >= v);
+        if (cross(T_HIT)) {
+          sound.play('impact');
+          pst.animate([{ transform: 'none' }, { transform: 'translate(16px,-4px)' }, { transform: 'translate(-11px,5px)' }, { transform: 'translate(6px,-2px)' }, { transform: 'translate(-2px,1px)' }, { transform: 'none' }], { duration: 520, easing: 'ease-out' });
+          if (navigator.vibrate) try { navigator.vibrate(45); } catch (_) {}
+        }
+        if (cross(T_AFTER)) {
+          sound.play('crash');
+          pst.animate([{ transform: 'none' }, { transform: 'translate(-7px,3px)' }, { transform: 'translate(5px,-2px)' }, { transform: 'none' }], { duration: 340, easing: 'ease-out' });
+          if (navigator.vibrate) try { navigator.vibrate(25); } catch (_) {}
+        }
       }
-      // the cracked page falls away and the next page is underneath
-      dLay.style.transform = f5 ? `translateY(${(f5 * 108).toFixed(2)}%) rotate(${(f5 * 4).toFixed(2)}deg)` : '';
+      // the broken page falls away and the next page is underneath
+      // after the second hit the wrecked page starts to sag … then gives way
+      const sag = ease(clamp((t - T_AFTER - .04) / (T_FALL - T_AFTER - .04)));
+      const dy = sag * 2.2 + f5 * 110, dr = sag * 1.6 + f5 * 5;
+      dLay.style.transform = dy > .01 ? `translateY(${dy.toFixed(2)}%) rotate(${dr.toFixed(2)}deg)` : '';
       hmLast = t;
     }
 
@@ -1769,6 +1899,7 @@
       slide(cur === idx('ef') ? clamp(at('ef') / SEG[idx('ef')].len) : -1);
       zoom(y);
     };
+    window.__seg = k => [starts[idx(k)], SEG[idx(k)].len];
     addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(sync); } }, { passive: true });
     new IntersectionObserver(es => es.forEach(en => {
       inView = en.isIntersecting;
@@ -1927,23 +2058,118 @@
     (document.fonts?.ready || Promise.resolve()).then(build);
   })();
 
-  /* ---------- SMALL WINS: the photo opens out of a blue block as you scroll, the × turns ---------- */
+  /* ---------- SMALL WINS v11 — all on the scroll:
+                  the photo is hidden under a grid of little blocks (like the SMALL WINS cover) that flip away one by one
+                  while the number counts up to 1,500 · the three points drop in · the "ใช้จริง" stamp slams down.
+                  Big screens pin the scene; phones run the same moments as each part scrolls past. ---------- */
   (() => {
-    const main = $('.win-feat .wf-main'), x = $('.wf-en b');
-    if (!main) return;
-    let tk = false, last = -1;
+    const feat = $('.win-feat[data-scrub]');
+    if (!feat) return;
+    const pin = $('.wx-pin'), main = $('.wf-main', feat), cv = $('.wf-blocks', feat);
+    const th = $('.wf-th', feat), en = $('.wf-en', feat), x = $('.wf-en b', feat), para = $('.wf-text > p', feat);
+    const num = $('.count', feat), to = +num.dataset.to || 0, stamp = $('.stamp', feat), stats = $('.wf-stats', feat), lis = $$('.wf-points li', feat);
+    const g = cv.getContext('2d');
+    const mq = matchMedia('(min-width: 900px) and (min-height: 700px)');
+    const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+    const ease = t => 1 - Math.pow(1 - t, 3);
+    const fmt = v => Math.round(v).toLocaleString('en-US');
+    let N = 12, cells = [], cw = 0, ch = 0, dpr = 1, tk = false, key = '', lastS = -1, lastNum = '';
+    const build = () => {
+      N = innerWidth < 700 ? 10 : 12;
+      cw = main.offsetWidth; ch = main.offsetHeight;
+      dpr = Math.min(2, devicePixelRatio || 1);
+      cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+      let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      cells = [];
+      for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+        const tone = rnd();
+        cells.push({ r, c, a: rnd(),                                                  // a: when it pops in
+          o: ((c / (N - 1)) * .55 + ((N - 1 - r) / (N - 1)) * .45) * .8 + rnd() * .2,     // o: when it flips away (a wave from the bottom-left)
+          col: tone < .08 ? '#4da3ff' : tone < .2 ? '#1f4e80' : tone < .23 ? '#f6f6f3' : '#17171a' });
+      }
+      key = ''; upd();
+    };
+    const blocks = (bk, k) => {
+      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, cw, ch);
+      if (k >= 1) return;
+      const sw = cw / N, sh = ch / N, gap = Math.max(1, sw * .1);
+      for (const q of cells) {
+        const b = clamp((bk - q.a * .7) / .3);
+        const f = clamp((k - q.o * .86) / .14);
+        if (f >= 1) continue;
+        const x0 = q.c * sw, y0 = q.r * sh, s = ease(b);
+        if (f < .5) { g.globalAlpha = 1; g.fillStyle = '#0b0b0c'; g.fillRect(x0, y0, sw + .5, sh + .5); }   // the backing hides the photo until its block flips
+        let col = q.col, sy = 1, al = 1;
+        if (f > 0) { sy = Math.abs(Math.cos(f * Math.PI)); col = f < .5 ? '#4da3ff' : '#bfe0ff'; al = f < .5 ? 1 : 1 - (f - .5) * 2; }
+        const w = (sw - gap) * s, h = (sh - gap) * s * sy;
+        if (b > 0) { g.globalAlpha = al; g.fillStyle = col; g.fillRect(x0 + (sw - w) / 2, y0 + (sh - h) / 2, w, h); }
+      }
+      g.globalAlpha = 1;
+    };
+    const rise = (el, e) => {                     // text rises out of a mask line
+      if (!el) return;
+      if (e >= 1) { el.style.transform = el.style.clipPath = ''; return; }
+      el.style.transform = `translateY(${((1 - e) * 100).toFixed(1)}%)`;
+      el.style.clipPath = `inset(-30% -6% ${((1 - e) * 130 - 30).toFixed(1)}% -6%)`;
+    };
     const upd = () => {
       tk = false;
-      const r = main.getBoundingClientRect(), vh = innerHeight;
-      if (r.top > vh * 1.2 || r.bottom < -vh * .2) return;
-      const k = reduce ? 1 : Math.max(0, Math.min(1, (vh * .95 - r.top) / (vh * .55)));
-      if (Math.abs(k - last) < .003) return;
-      last = k;
-      main.style.setProperty('--wr', k.toFixed(3));
-      if (x) x.style.transform = `rotate(${(k * 180).toFixed(1)}deg)`;
+      const vh = innerHeight, pinned = mq.matches && !reduce;
+      let bk, tt, pa, k, kc, lk, s, sr;
+      if (reduce) { bk = tt = pa = k = kc = s = sr = 1; lk = [1, 1, 1]; }
+      else if (pinned) {
+        const pr = pin.getBoundingClientRect();
+        if (pr.top > vh * 1.2 || pr.bottom < -vh * .2) return;
+        const span = pin.offsetHeight - vh || 1, p = pr.top > 0 ? -pr.top / vh : -pr.top / span;
+        bk = clamp((p + .75) / .6); tt = clamp((p + .6) / .5); pa = clamp((p + .3) / .35);
+        k = kc = clamp(p / .42);
+        lk = lis.map((_, i) => clamp((p - (.45 + i * .075)) / .1));
+        s = clamp((p - .7) / .07); sr = clamp((p - .77) / .05);
+      } else {
+        const mr = main.getBoundingClientRect();
+        if (mr.top > vh * 1.3 || feat.getBoundingClientRect().bottom < -vh * .2) return;
+        bk = clamp((vh * 1.05 - mr.top) / (vh * .35)); k = clamp((vh * .78 - mr.top) / (vh * .5));
+        tt = clamp((vh * .98 - th.getBoundingClientRect().top) / (vh * .28)); pa = clamp((vh * .95 - para.getBoundingClientRect().top) / (vh * .25));
+        const st = stats.getBoundingClientRect().top;
+        kc = clamp((vh * .95 - st) / (vh * .38)); s = clamp((vh * .56 - st) / (vh * .1)); sr = clamp((vh * .46 - st) / (vh * .06));
+        lk = lis.map(li => clamp((vh * .93 - li.getBoundingClientRect().top) / (vh * .2)));
+      }
+      const nk = [bk, tt, pa, k, kc, s, sr, ...lk].map(v => v.toFixed(3)).join();
+      if (nk === key) return;
+      key = nk;
+      blocks(bk, k);
+      main.style.setProperty('--wk', k.toFixed(3));
+      main.style.setProperty('--wy', (pinned ? (1 - ease(bk)) * 28 - 6 * Math.sin(k * Math.PI) : 0).toFixed(2) + 'deg');
+      rise(th, ease(tt)); rise(en, ease(clamp((tt - .22) / .78)));
+      if (x) x.style.transform = `rotate(${(tt * 90 + kc * 180).toFixed(1)}deg)`;
+      para.style.opacity = pa.toFixed(3); para.style.transform = `translateY(${((1 - ease(pa)) * 18).toFixed(1)}px)`;
+      const n = fmt(Math.round(to * kc / 10) * 10);
+      if (n !== lastNum) { num.textContent = n; lastNum = n; }
+      lis.forEach((li, i) => {
+        const e = ease(lk[i]);
+        li.style.setProperty('--lk', e.toFixed(3));
+        li.style.opacity = clamp((lk[i] - .2) / .8).toFixed(3);
+        li.style.transform = `translateX(${((1 - e) * -22).toFixed(1)}px)`;
+      });
+      // the stamp: hangs big above the page, then slams down (ease-in) — shake + a blue ring
+      const sd = s * s;
+      stamp.style.opacity = clamp(s * 4).toFixed(3);
+      stamp.style.transform = `rotate(${(-18 + 12 * sd).toFixed(2)}deg) scale(${(2.8 - 1.8 * sd).toFixed(3)})`;
+      stamp.style.setProperty('--so', s >= 1 ? '1' : '0');
+      stamp.style.setProperty('--sr', s >= 1 ? sr.toFixed(3) : '0');
+      if (lastS >= 0 && lastS < 1 && s >= 1 && !reduce) {
+        sound.play('crash');
+        stats.animate([{ transform: 'none' }, { transform: 'translate(0,7px)' }, { transform: 'translate(0,-3px)' }, { transform: 'none' }], { duration: 300, easing: 'ease-out' });
+        main.animate([{ transform: 'none' }, { transform: 'translate(-4px,3px)' }, { transform: 'none' }], { duration: 260, easing: 'ease-out' });
+        if (navigator.vibrate) try { navigator.vibrate(30); } catch (_) {}
+      }
+      lastS = s;
     };
     addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(upd); } }, { passive: true });
-    upd();
+    let rt = 0; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 120); });
+    mq.addEventListener?.('change', build);
+    addEventListener('load', build);
+    build();
   })();
 
   /* ---------- GIVE: the blue block (the chance I grabbed) bursts into small blocks that are handed out,
@@ -1972,37 +2198,51 @@
     const GIVER = { x: 14, y: -40, s: 40 }, KS = [90, 128, 166, 204].map(x => ({ x, y: -14, s: 14 })), CW = 240;
     const layout = () => {
       W = stage.clientWidth; H = stage.clientHeight;
-      sec.style.height = Math.round(H * 2.8) + 'px';
+      sec.style.height = Math.round(H * 3.4) + 'px';
       top = sec.getBoundingClientRect().top + scrollY;
-      cv.width = W; cv.height = H * 2; cv.style.height = H * 2 + 'px';     // taller than the screen: the pieces fall on down into THE WORK
+      cv.width = innerWidth; cv.height = innerHeight;                   // a screen-sized layer: the pieces can fall anywhere, nothing cuts them off
       SC = Math.min(2.4, W / CW * .55);
       seed = 3;
       P = [];
       const src = [GIVER, ...KS];
       src.forEach((b, bi) => {
-        const n = bi ? (W < 700 ? 9 : 16) : (W < 700 ? 18 : 30);
-        for (let i = 0; i < n; i++) P.push({ bi, ox: rnd(), oy: rnd(), a: rnd() * Math.PI * 2, d: (.12 + rnd() * .55) * Math.hypot(W, H) * .5, s: 4 + rnd() * (bi ? 8 : 12), c: bi ? (rnd() < .8 ? '#4da3ff' : '#2b78cc') : (rnd() < .6 ? '#f6f6f3' : '#4da3ff'), g: .7 + rnd() * .7, spin: (rnd() - .5) * 9, dl: rnd() * .15 });
+        const n = bi ? (W < 700 ? 12 : 24) : (W < 700 ? 26 : 48);
+        for (let i = 0; i < n; i++) P.push({ bi, ox: rnd(), oy: rnd(), a: rnd() * Math.PI * 2, d: (.12 + rnd() * .55) * Math.hypot(W, H) * .5, s: 4 + rnd() * (bi ? 8 : 12), c: bi ? (rnd() < .8 ? '#4da3ff' : '#2b78cc') : (rnd() < .6 ? '#f6f6f3' : '#4da3ff'), g: 1 + rnd() * .8, spin: (rnd() - .5) * 9, dl: rnd() * .15 });
       });
       last = -9; draw();
     };
     const draw = () => {
       tk = false;
       const rel = scrollY - top, span = sec.offsetHeight - H || 1, p = rel / span;
-      if (p < -1.2 || p > 2.4) return;
+      const live = p > -1.1 && p < 1.7;
+      cv.style.display = live ? '' : 'none';
+      if (!live) { last = -9; return; }
       if (Math.abs(p - last) < .0008) return;
       last = p;
       const pp = clamp(p);
-      const wk = clamp(pp / .3) * (words.length + 1);
+      const wk = clamp(pp / .25) * (words.length + 1);
       words.forEach((w, i) => (w.style.opacity = (.14 + .86 * clamp(wk - i)).toFixed(3)));
-      txt.style.transform = `translateY(${(-clamp((pp - .56) / .4) * H * .35).toFixed(1)}px)`;
-      txt.style.opacity = (1 - clamp((pp - .62) / .3)).toFixed(3);
-      g.clearRect(0, 0, W, H * 2);
-      const ox = W / 2 - CW * SC / 2, oy = H * .3;                         // scene origin (floor line)
+      txt.style.transform = `translateY(${(-clamp((pp - .66) / .3) * H * .35).toFixed(1)}px)`;
+      txt.style.opacity = (1 - clamp((p - .76) / .3)).toFixed(3);
+      const VW = cv.width, VH = cv.height;
+      g.clearRect(0, 0, VW, VH);
+      const sTop = stage.getBoundingClientRect().top;                   // the scene rides with the page once the pin lets go
+      const ox = (VW - W) / 2 + W / 2 - CW * SC / 2, oy = H * .3 + sTop;   // scene origin (floor line), in screen space
       const X = u => ox + u * SC, Y = v => oy + v * SC;
-      const charge = clamp((pp - .34) / .14), burst = clamp((pp - .48) / .16), fall = Math.max(0, (p - .62) / 1.0);   // still falling while THE WORK cards drop in
+      // hand-outs .05–.35 · charge .36–.62 (longer) · burst .62–.74 · fall from .72, fast enough to leave the screen before THE WORK settles
+      const charge = clamp((pp - .36) / .26), burst = clamp((pp - .62) / .12), fall = Math.max(0, (p - .72) / .85);
       if (burst < .01) {
-        const jit = charge * charge * 3.2 * SC;
+        const jit = charge * charge * 3.6 * SC;
         const J = () => (Math.random() - .5) * jit;
+        // charging: square pulses ripple out from the group, faster and brighter as it fills up
+        if (charge > 0) {
+          const gcx = X(CW / 2 - 10), gcy = Y(-18), n = 1 + charge * 5;
+          for (let k = 0; k < 3; k++) {
+            const ph = (charge * n + k / 3) % 1, r = (40 + ph * 160) * SC * .5;
+            g.strokeStyle = `rgba(77,163,255,${((1 - ph) * .5 * charge).toFixed(3)})`; g.lineWidth = 1.5;
+            g.strokeRect(gcx - r * 1.6, gcy - r * .6, r * 3.2, r * 1.2);
+          }
+        }
         // floor
         g.fillStyle = '#2a2a2d'; g.fillRect(X(0), Y(0), CW * SC, Math.max(1, SC * .8));
         // glow while charging
@@ -2014,7 +2254,7 @@
         // giver (white) with the blue core inside
         const gx = X(GIVER.x) + J(), gy = Y(GIVER.y) + J();
         g.fillStyle = '#f6f6f3'; g.fillRect(gx, gy, GIVER.s * SC, GIVER.s * SC);
-        const cs = (8 + 8 * charge) * SC;
+        const cs = (8 + 14 * charge) * SC;
         g.fillStyle = '#4da3ff'; g.fillRect(gx + (GIVER.s * SC - cs) / 2, gy + (GIVER.s * SC - cs) / 2, cs, cs);
         // four receivers + the blue squares tossed to them
         KS.forEach((k, i) => {
@@ -2034,8 +2274,8 @@
       for (const q of P) {
         const b = src[q.bi], bx = X(b.x + b.s * q.ox), by = Y(b.y + b.s * q.oy);
         const e = ease(clamp((burst - q.dl) / (1 - q.dl)));
-        const x = bx + Math.cos(q.a) * q.d * e, y = by + Math.sin(q.a) * q.d * e * .7 + fall * fall * H * 1.35 * q.g;
-        if (y > H * 2 + 20 || y < -40) continue;
+        const x = bx + Math.cos(q.a) * q.d * e, y = by + Math.sin(q.a) * q.d * e * .7 + fall * fall * H * 4.2 * q.g;
+        if (y > VH + 20 || y < -40) continue;
         g.save(); g.translate(x, y); g.rotate(q.spin * (e + fall)); g.fillStyle = q.c; g.fillRect(-q.s / 2, -q.s / 2, q.s, q.s); g.restore();
       }
     };
