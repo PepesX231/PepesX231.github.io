@@ -423,115 +423,86 @@
     size(); reset(false); draw();
   })();
 
-  /* ---------- ABOUT: skills on a 3D sphere — auto-spins, drag to throw it around ---------- */
+  /* ---------- ABOUT: skills as a 3D keyboard — every key is a skill; press one (mouse, tap or your real keyboard) ---------- */
   (() => {
-    const el = $('#skillSphere'); if (!el) return;
-    const words = ['Unity', 'C#', 'Game Systems', 'Level Design', 'Puzzle Design', 'Python', 'AI', 'Prompting', 'Figma', 'Canva', 'Pitching', 'Teamwork', 'GitHub', 'Game Jam', 'Physics', 'Storytelling', 'Leadership', 'Critical Thinking', 'Java', 'PHP', 'HTML', 'CSS', 'JavaScript'];
-    const logos = {'Unity': '<path d="M8 1l6 3.5v7L8 15l-6-3.5v-7z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 8l6-3.5M8 8v7M8 8L2 4.5" stroke="currentColor" stroke-width="1.6"/>','C#': '<path d="M8 1l6.5 3.7v6.6L8 15l-6.5-3.7V4.7z" fill="#68217a"/><text x="8" y="10.8" font-size="7" font-weight="700" fill="#fff" text-anchor="middle" font-family="sans-serif">C#</text>','Python': '<path d="M8 1.5c-3 0-3 1.3-3 2.5v1.5h3v.6H3.6C2 6.1 1.5 7.4 1.5 8.9S2 11.6 3.6 11.6H5V10c0-1.4 1.2-2.4 2.6-2.4h3c1.2 0 2-.9 2-2V4c0-1.4-1.6-2.5-4.6-2.5z" fill="#3776ab"/><path d="M8 14.5c3 0 3-1.3 3-2.5v-1.5H8v-.6h4.4c1.6 0 2.1-1.3 2.1-2.8S14 4.4 12.4 4.4H11V6c0 1.4-1.2 2.4-2.6 2.4h-3c-1.2 0-2 .9-2 2V12c0 1.4 1.6 2.5 4.6 2.5z" fill="#ffd43b"/>','Figma': '<circle cx="10" cy="8" r="2.5" fill="#1abcfe"/><path d="M5.5 13a2.5 2.5 0 015 0v-2.5h-2.5A2.5 2.5 0 005.5 13z" fill="#0acf83"/><path d="M5.5 8a2.5 2.5 0 012.5-2.5h2.5v5H8A2.5 2.5 0 015.5 8z" fill="#a259ff"/><path d="M5.5 3A2.5 2.5 0 018 .5h2.5v5H8A2.5 2.5 0 015.5 3z" fill="#f24e1e"/><path d="M10.5.5H13a2.5 2.5 0 010 5h-2.5z" fill="#ff7262"/>','Canva': '<circle cx="8" cy="8" r="7" fill="#00c4cc"/><text x="8" y="11" font-size="8" font-weight="700" fill="#fff" text-anchor="middle" font-family="serif" font-style="italic">C</text>','GitHub': '<path d="M8 1a7 7 0 00-2.2 13.6c.35.07.5-.15.5-.34v-1.2c-1.95.42-2.36-.94-2.36-.94-.32-.8-.78-1.02-.78-1.02-.64-.44.05-.43.05-.43.7.05 1.07.72 1.07.72.63 1.07 1.64.76 2.04.58.06-.45.24-.76.44-.94-1.55-.18-3.19-.78-3.19-3.46 0-.76.27-1.39.72-1.88-.07-.18-.31-.89.07-1.85 0 0 .59-.19 1.93.72a6.6 6.6 0 013.5 0c1.34-.91 1.93-.72 1.93-.72.38.96.14 1.67.07 1.85.45.49.72 1.12.72 1.88 0 2.69-1.64 3.28-3.2 3.45.25.22.48.64.48 1.3v1.93c0 .19.13.41.5.34A7 7 0 008 1z" fill="currentColor"/>','AI': '<path d="M8 1l1.6 4.4L14 7l-4.4 1.6L8 13l-1.6-4.4L2 7l4.4-1.6z" fill="#4da3ff"/>', 'Java': '<path d="M6 9.5s-1 .6.7.8c2 .2 3 .2 5.2-.2 0 0 .6.4 1.4.7-4.9 2.1-11-.1-7.3-1.3zM5.4 12s-1.1.8.6 1c2.1.2 3.8.2 6.8-.3 0 0 .4.4 1 .6-6 1.7-12.6.1-8.4-1.3z" fill="#5382a1"/><path d="M8.9 7.8c1.2 1.4-.3 2.6-.3 2.6s3-1.6 1.7-3.5C9 5 8.2 4.3 12.6 1.8c0 0-6.9 1.7-3.7 6z" fill="#e76f00"/>', 'PHP': '<ellipse cx="8" cy="8" rx="7.5" ry="4.2" fill="#777bb3"/><text x="8" y="10.2" font-size="5.6" font-weight="700" fill="#fff" text-anchor="middle" font-family="sans-serif" font-style="italic">php</text>', 'HTML': '<path d="M2 1h12l-1.1 12.3L8 15l-4.9-1.7z" fill="#e34f26"/><path d="M5 4.5h6l-.2 2H7l.1 1.5h3.5l-.3 3.3L8 12l-2.3-.7-.1-1.6h1.4l.1.6.9.3.9-.3.1-1.1H5.3z" fill="#fff"/>', 'CSS': '<path d="M2 1h12l-1.1 12.3L8 15l-4.9-1.7z" fill="#1572b6"/><path d="M5 4.5h6l-.2 2H7.1l.1 1.5h3.4l-.3 3.3L8 12l-2.3-.7-.1-1.6h1.4l.1.6.9.3.9-.3.1-1.1H5.3z" fill="#fff"/>', 'JavaScript': '<rect x="1" y="1" width="14" height="14" rx="1.5" fill="#f7df1e"/><text x="10" y="13" font-size="6.5" font-weight="700" fill="#222" text-anchor="middle" font-family="sans-serif">JS</text>'};   // hand-drawn mini logos, inline so they always load
-    const tags = words.map((w, i) => {
-      const s = document.createElement('span'); const ic = logos[w]; s.innerHTML = (logos[w] ? `<svg viewBox="0 0 16 16" aria-hidden="true">${logos[w]}</svg>` : '') + w; if (i < 2 || /Leadership|Critical/.test(w)) s.className = 'hot'; el.appendChild(s);
-      const y = 1 - (i + .5) / words.length * 2, r = Math.sqrt(1 - y * y), th = i * 2.39996;   // fibonacci sphere
-      return { s, x: Math.cos(th) * r, y, z: Math.sin(th) * r };
+    const kb = $('#skillKeys'); if (!kb) return;
+    const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const logos = {'Unity': '<path d="M8 1l6 3.5v7L8 15l-6-3.5v-7z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 8l6-3.5M8 8v7M8 8L2 4.5" stroke="currentColor" stroke-width="1.6"/>','C#': '<path d="M8 1l6.5 3.7v6.6L8 15l-6.5-3.7V4.7z" fill="#68217a"/><text x="8" y="10.8" font-size="7" font-weight="700" fill="#fff" text-anchor="middle" font-family="sans-serif">C#</text>','Python': '<path d="M8 1.5c-3 0-3 1.3-3 2.5v1.5h3v.6H3.6C2 6.1 1.5 7.4 1.5 8.9S2 11.6 3.6 11.6H5V10c0-1.4 1.2-2.4 2.6-2.4h3c1.2 0 2-.9 2-2V4c0-1.4-1.6-2.5-4.6-2.5z" fill="#3776ab"/><path d="M8 14.5c3 0 3-1.3 3-2.5v-1.5H8v-.6h4.4c1.6 0 2.1-1.3 2.1-2.8S14 4.4 12.4 4.4H11V6c0 1.4-1.2 2.4-2.6 2.4h-3c-1.2 0-2 .9-2 2V12c0 1.4 1.6 2.5 4.6 2.5z" fill="#ffd43b"/>','Figma': '<circle cx="10" cy="8" r="2.5" fill="#1abcfe"/><path d="M5.5 13a2.5 2.5 0 015 0v-2.5h-2.5A2.5 2.5 0 005.5 13z" fill="#0acf83"/><path d="M5.5 8a2.5 2.5 0 012.5-2.5h2.5v5H8A2.5 2.5 0 015.5 8z" fill="#a259ff"/><path d="M5.5 3A2.5 2.5 0 018 .5h2.5v5H8A2.5 2.5 0 015.5 3z" fill="#f24e1e"/><path d="M10.5.5H13a2.5 2.5 0 010 5h-2.5z" fill="#ff7262"/>','Canva': '<circle cx="8" cy="8" r="7" fill="#00c4cc"/><text x="8" y="11" font-size="8" font-weight="700" fill="#fff" text-anchor="middle" font-family="serif" font-style="italic">C</text>','GitHub': '<path d="M8 1a7 7 0 00-2.2 13.6c.35.07.5-.15.5-.34v-1.2c-1.95.42-2.36-.94-2.36-.94-.32-.8-.78-1.02-.78-1.02-.64-.44.05-.43.05-.43.7.05 1.07.72 1.07.72.63 1.07 1.64.76 2.04.58.06-.45.24-.76.44-.94-1.55-.18-3.19-.78-3.19-3.46 0-.76.27-1.39.72-1.88-.07-.18-.31-.89.07-1.85 0 0 .59-.19 1.93.72a6.6 6.6 0 013.5 0c1.34-.91 1.93-.72 1.93-.72.38.96.14 1.67.07 1.85.45.49.72 1.12.72 1.88 0 2.69-1.64 3.28-3.2 3.45.25.22.48.64.48 1.3v1.93c0 .19.13.41.5.34A7 7 0 008 1z" fill="currentColor"/>','AI': '<path d="M8 1l1.6 4.4L14 7l-4.4 1.6L8 13l-1.6-4.4L2 7l4.4-1.6z" fill="#4da3ff"/>', 'Java': '<path d="M6 9.5s-1 .6.7.8c2 .2 3 .2 5.2-.2 0 0 .6.4 1.4.7-4.9 2.1-11-.1-7.3-1.3zM5.4 12s-1.1.8.6 1c2.1.2 3.8.2 6.8-.3 0 0 .4.4 1 .6-6 1.7-12.6.1-8.4-1.3z" fill="#5382a1"/><path d="M8.9 7.8c1.2 1.4-.3 2.6-.3 2.6s3-1.6 1.7-3.5C9 5 8.2 4.3 12.6 1.8c0 0-6.9 1.7-3.7 6z" fill="#e76f00"/>', 'PHP': '<ellipse cx="8" cy="8" rx="7.5" ry="4.2" fill="#777bb3"/><text x="8" y="10.2" font-size="5.6" font-weight="700" fill="#fff" text-anchor="middle" font-family="sans-serif" font-style="italic">php</text>', 'HTML': '<path d="M2 1h12l-1.1 12.3L8 15l-4.9-1.7z" fill="#e34f26"/><path d="M5 4.5h6l-.2 2H7l.1 1.5h3.5l-.3 3.3L8 12l-2.3-.7-.1-1.6h1.4l.1.6.9.3.9-.3.1-1.1H5.3z" fill="#fff"/>', 'CSS': '<path d="M2 1h12l-1.1 12.3L8 15l-4.9-1.7z" fill="#1572b6"/><path d="M5 4.5h6l-.2 2H7.1l.1 1.5h3.4l-.3 3.3L8 12l-2.3-.7-.1-1.6h1.4l.1.6.9.3.9-.3.1-1.1H5.3z" fill="#fff"/>', 'JavaScript': '<rect x="1" y="1" width="14" height="14" rx="1.5" fill="#f7df1e"/><text x="10" y="13" font-size="6.5" font-weight="700" fill="#222" text-anchor="middle" font-family="sans-serif">JS</text>'};
+    // name · key colour · what it means to me (แก้คำอธิบายได้ตรงนี้)
+    const SK = [
+      ['Unity', '#1d1d20', 'เอนจินหลักที่ผมใช้ทำเกมทุกเกม ตั้งแต่เกมแจมไปจนถึงงานแข่ง'],
+      ['C#', '#68217a', 'ภาษาที่ผมใช้เขียนระบบเกมทั้งหมดใน Unity'],
+      ['Game Systems', '#2b78cc', 'ออกแบบกติกา ระบบ และความก้าวหน้าของผู้เล่น'],
+      ['Level Design', '#1f9d6b', 'วางด่านให้ผู้เล่นค่อย ๆ เรียนรู้โดยไม่ต้องอธิบาย'],
+      ['Puzzle Design', '#e0892b', 'ปริศนาที่ท้าทาย แต่แฟร์กับผู้เล่น'],
+      ['Python', '#3776ab', 'เขียนสคริปต์และลองทำงานด้าน AI'],
+      ['AI', '#4da3ff', 'ใช้ AI เป็นเครื่องมือ — และสอนคนอื่นให้ใช้เป็น'],
+      ['Prompting', '#6b5bd6', 'สั่ง AI ให้ได้งานที่ต้องการจริง ๆ'],
+      ['Figma', '#f24e1e', 'ออกแบบ UI และหน้าจอเกมก่อนลงมือทำ'],
+      ['Canva', '#00a3ad', 'ทำสไลด์ โปสเตอร์ และงานนำเสนอ'],
+      ['Pitching', '#d6395b', 'นำเสนอผลงานต่อกรรมการให้เห็นภาพในไม่กี่นาที'],
+      ['Teamwork', '#2f9e44', 'ทำงานเป็นทีมในเกมแจมและแฮกกาธอน'],
+      ['GitHub', '#24292f', 'เก็บโค้ด และทำงานร่วมกับทีมโดยไม่ทับกัน'],
+      ['Game Jam', '#f08c00', 'ทำเกมให้เสร็จในเวลาจำกัด เช่น 72 ชั่วโมง'],
+      ['Physics', '#1c7ed6', 'เข้าใจฟิสิกส์ที่อยู่เบื้องหลังการเคลื่อนไหวในเกม'],
+      ['Storytelling', '#9c36b5', 'เล่าเรื่องผ่านเกม และผ่านการนำเสนอ'],
+      ['Leadership', '#111114', 'นำทีมจัดงาน Science Day × AI ให้นักเรียน 1,500+ คน'],
+      ['Critical Thinking', '#495057', 'แยกปัญหาใหญ่เป็นชิ้นเล็ก แล้วแก้ทีละชิ้น'],
+      ['Java', '#e76f00', 'พื้นฐานการเขียนโปรแกรมเชิงวัตถุ'],
+      ['PHP', '#777bb3', 'เขียนฝั่งเซิร์ฟเวอร์ของเว็บเบื้องต้น'],
+      ['HTML', '#e34f26', 'โครงของหน้าเว็บ — เว็บนี้ก็ด้วย'],
+      ['CSS', '#1572b6', 'ทำให้หน้าเว็บสวยและขยับได้'],
+      ['JavaScript', '#e8c21a', 'ทำให้หน้าเว็บมีชีวิต — ทุกลูกเล่นในเว็บนี้']];
+    const initials = w => w.split(/\s+/).map(x => x[0]).join('').slice(0, 2);
+    const board = $('.kb-board', kb), title = $('.kb-title', kb), desc = $('.kb-desc', kb);
+    const keys = SK.map(([name, col, d], i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'kc'; b.style.setProperty('--c', col);
+      if (['#e8c21a', '#4da3ff', '#00a3ad'].includes(col)) b.classList.add('lt');
+      b.innerHTML = `<span class="kc-top">${logos[name] ? `<svg viewBox="0 0 16 16" aria-hidden="true">${logos[name]}</svg>` : `<b>${initials(name)}</b>`}<i>${name}</i></span>`;
+      b.setAttribute('aria-label', name);
+      board.appendChild(b);
+      return { b, name, d };
     });
-    let ax = .004, ay = .007, R = 0, vis = false, raf = 0, dragging = null;
-    const rot = (t, a, b) => {
-      const cy = Math.cos(a), sy = Math.sin(a), cx = Math.cos(b), sx = Math.sin(b);
-      let x = t.x * cy + t.z * sy, z = -t.x * sy + t.z * cy;       // around Y
-      let y = t.y * cx - z * sx; z = t.y * sx + z * cx;            // around X
-      t.x = x; t.y = y; t.z = z;
+    const sp = document.createElement('button'); sp.type = 'button'; sp.className = 'kc kc-space'; sp.style.setProperty('--c', '#f6f6f3'); sp.classList.add('lt');
+    sp.innerHTML = '<span class="kc-top"><i>FAIL FAST. LEARN FAST.</i></span>'; board.appendChild(sp);
+    keys.push({ b: sp, name: 'Fail fast.', d: 'ทุกทักษะบนคีย์บอร์ดนี้ ได้มาจากการลงมือทำ แพ้ แล้วเรียนรู้' });
+    let cur = -1, user = false, auto = 0;
+    const press = (i, fromUser) => {
+      const k = keys[i]; if (!k) return;
+      if (fromUser) { user = true; clearInterval(auto); }
+      k.b.classList.remove('down'); void k.b.offsetWidth; k.b.classList.add('down');
+      clearTimeout(k.t); k.t = setTimeout(() => k.b.classList.remove('down'), 190);
+      if (cur >= 0) keys[cur].b.classList.remove('on');
+      cur = i; k.b.classList.add('on');
+      title.textContent = k.name; desc.textContent = k.d;
+      title.classList.remove('pop'); void title.offsetWidth; title.classList.add('pop');
+      if (fromUser) sound.play('clack');
     };
-    /* ---- a brain: the skills are neurons wired together; signals run along the wires and set off the next ones ---- */
-    const cv = document.createElement('canvas'); cv.className = 'sk-net'; cv.setAttribute('aria-hidden', 'true'); el.prepend(cv);
-    const g = cv.getContext('2d');
-    let seed = 21; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    const nDots = innerWidth < 700 ? 34 : 64;
-    const dots = Array.from({ length: nDots }, () => {            // small neurons filling the head (inside the sphere)
-      const u = rnd() * 2 - 1, th = rnd() * Math.PI * 2, r = .35 + Math.cbrt(rnd()) * .7, q = Math.sqrt(1 - u * u);
-      return { x: Math.cos(th) * q * r, y: u * r, z: Math.sin(th) * q * r, dot: true, s: 1 + rnd() * 1.8 };
+    keys.forEach((k, i) => { k.b.addEventListener('click', () => press(i, true)); if (fine) k.b.addEventListener('pointerenter', () => press(i, true)); });
+    // your real keyboard: a letter jumps to the first skill that starts with it (space = the motto)
+    let vis = false;
+    new IntersectionObserver(es => es.forEach(e => {
+      vis = e.isIntersecting;
+      clearInterval(auto);
+      if (vis && !user && !reduce) auto = setInterval(() => press((Math.random() * (keys.length - 1)) | 0, false), 2200);
+    }), { threshold: .3 }).observe(kb);
+    addEventListener('keydown', e => {
+      if (!vis || e.metaKey || e.ctrlKey || e.altKey || /input|textarea/i.test(e.target.tagName)) return;
+      if (e.code === 'Space') { e.preventDefault(); press(keys.length - 1, true); return; }
+      const ch = (e.key || '').toLowerCase(); if (ch.length !== 1) return;
+      const list = keys.map((k, i) => [k, i]).filter(([k]) => k.name.toLowerCase().startsWith(ch));
+      if (!list.length) return;
+      const nx = list.find(([, i]) => i > cur) || list[0];
+      press(nx[1], true);
     });
-    const nodes = [...tags, ...dots];
-    nodes.forEach(n => { n.heat = 0; n.nb = []; });
-    const edges = [];
-    nodes.forEach((n, i) => {                                      // wire each neuron to its nearest neighbours (distances never change as it spins)
-      const near = nodes.map((m, j) => [j, (m.x - n.x) ** 2 + (m.y - n.y) ** 2 + (m.z - n.z) ** 2]).filter(q => q[0] !== i).sort((p, q) => p[1] - q[1]).slice(0, n.dot ? 3 : 4);
-      near.forEach(([j]) => { if (edges.some(e => (e.a === i && e.b === j) || (e.a === j && e.b === i))) return; const e = { a: i, b: j, heat: 0, bend: (rnd() - .5) * .5 }; edges.push(e); n.nb.push(e); nodes[j].nb.push(e); });
-    });
-    let pulses = [], W = 0, H = 0, dpr = 1, lastT = 0, nextSpark = 0;
-    const size = () => { dpr = Math.min(2, devicePixelRatio || 1); W = el.clientWidth; H = el.clientHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); };
-    const fire = (i, from = null, force = false) => {
-      const n = nodes[i]; n.heat = 1;
-      if (!n.dot && n.s) { n.s.classList.remove('fire'); void n.s.offsetWidth; n.s.classList.add('fire'); clearTimeout(n.ft); n.ft = setTimeout(() => n.s.classList.remove('fire'), 520); }
-      n.nb.forEach(e => {
-        if (e === from || pulses.length > 46) return;
-        if (!force && rnd() > .34) return;
-        pulses.push({ e, t: 0, fwd: e.a === i, v: 1.4 + rnd() * 1.2 });
-      });
-    };
-    const P = n => [W / 2 + n.x * R * 1.45, H / 2 + n.y * R];
-    const drawNet = dt => {
-      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-      // wires: curved like dendrites, fainter at the back, blue while a signal has just passed
-      g.lineCap = 'round';
-      for (const e of edges) {
-        const A = nodes[e.a], B = nodes[e.b], [x1, y1] = P(A), [x2, y2] = P(B);
-        const d = ((A.z + B.z) / 2 + 1) / 2;
-        const mx = (x1 + x2) / 2 + (y2 - y1) * e.bend, my = (y1 + y2) / 2 - (x2 - x1) * e.bend;
-        e.mx = mx; e.my = my;
-        g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo(mx, my, x2, y2);
-        if (e.heat > .02) { g.strokeStyle = `rgba(77,163,255,${(.25 + .6 * e.heat * d).toFixed(3)})`; g.lineWidth = 1 + 1.6 * e.heat; e.heat *= Math.pow(.2, dt); }
-        else { g.strokeStyle = `rgba(24,24,28,${(.05 + .2 * d).toFixed(3)})`; g.lineWidth = .8; }
-        g.stroke();
-      }
-      // the small neurons
-      for (const n of dots) {
-        const [x, y] = P(n), d = (n.z + 1) / 2, r = n.s * (.6 + .6 * d);
-        if (n.heat > .02) { g.fillStyle = `rgba(77,163,255,${(.18 * n.heat).toFixed(3)})`; g.beginPath(); g.arc(x, y, r + 9 * n.heat, 0, 7); g.fill(); n.heat *= Math.pow(.15, dt); }
-        g.fillStyle = n.heat > .1 ? '#2f86e8' : `rgba(24,24,28,${(.2 + .5 * d).toFixed(3)})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
-      }
-      // signals: bright dots with a short tail
-      const next = [];
-      for (const p of pulses) {
-        p.t += p.v * dt;
-        const e = p.e, A = nodes[p.fwd ? e.a : e.b], B = nodes[p.fwd ? e.b : e.a], [x1, y1] = P(A), [x2, y2] = P(B);
-        e.heat = Math.max(e.heat, .8);
-        if (p.t >= 1) { fire(p.fwd ? e.b : e.a, e); continue; }
-        for (let k = 0; k < 4; k++) {
-          const t = Math.max(0, p.t - k * .05), u = 1 - t;
-          const x = u * u * x1 + 2 * u * t * e.mx + t * t * x2, y = u * u * y1 + 2 * u * t * e.my + t * t * y2;
-          g.fillStyle = k ? `rgba(77,163,255,${(.5 - k * .12).toFixed(2)})` : '#1f6fd0';
-          g.beginPath(); g.arc(x, y, k ? 3 - k * .5 : 3.2, 0, 7); g.fill();
-        }
-        next.push(p);
-      }
-      pulses = next;
-    };
-    const frame = now => {
-      now = now || performance.now();
-      const dt = Math.min(.05, lastT ? (now - lastT) / 1000 : .016); lastT = now;
-      R = Math.min(el.clientWidth, el.clientHeight) * .42;
-      if (!dragging) { ax += (.004 - ax) * .02; ay += (.007 - ay) * .02; }
-      nodes.forEach(t => rot(t, reduce ? 0 : ay, reduce ? 0 : ax));
-      tags.forEach(t => {
-        const k = (t.z + 1.6) / 2.6;
-        t.s.style.transform = `translate(-50%,-50%) translate3d(${(t.x * R * 1.45).toFixed(1)}px,${(t.y * R).toFixed(1)}px,0) scale(${(.6 + .5 * k).toFixed(3)})`;
-        t.s.style.opacity = (.25 + .75 * k).toFixed(3);
-        const zi = Math.round(k * 20); if (zi !== t.zi) { t.zi = zi; t.s.style.zIndex = zi; }   // re-stack only when the order really changes
-      });
-      if (!reduce && now > nextSpark && pulses.length < 12) { fire((rnd() * nodes.length) | 0, null, true); nextSpark = now + 700 + rnd() * 900; }
-      drawNet(dt);
-      raf = vis || dragging ? requestAnimationFrame(frame) : 0;
-      if (!raf) lastT = 0;
-    };
-    // point at a skill → it fires, and the signal spreads through the network
-    tags.forEach((t, i) => { t.s.addEventListener('pointerenter', () => fire(i, null, true)); });
-    el.addEventListener('pointerdown', e => { const s = e.target.closest?.('span'); const i = tags.findIndex(t => t.s === s); if (i >= 0) fire(i, null, true); });
-    addEventListener('resize', size); size();
-    el.addEventListener('pointerdown', e => { dragging = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); el.classList.add('grab'); if (!raf) raf = requestAnimationFrame(frame); });
-    el.addEventListener('pointermove', e => { if (!dragging) return; ay = (e.clientX - dragging.x) * .004; ax = -(e.clientY - dragging.y) * .004; dragging.x = e.clientX; dragging.y = e.clientY; });
-    const end = () => { dragging = null; el.classList.remove('grab'); };
-    el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
-    new IntersectionObserver(es => es.forEach(e => { vis = e.isIntersecting; if (vis && !raf) raf = requestAnimationFrame(frame); })).observe(el);
-    frame();
+    press(0, false);
+    // the board leans toward the mouse a little
+    if (fine && !reduce) {
+      const st = $('.kb-stage', kb);
+      st.addEventListener('pointermove', e => { const r = st.getBoundingClientRect(); st.style.setProperty('--mx', ((e.clientX - r.left) / r.width - .5).toFixed(3)); st.style.setProperty('--my', ((e.clientY - r.top) / r.height - .5).toFixed(3)); });
+      st.addEventListener('pointerleave', () => { st.style.setProperty('--mx', 0); st.style.setProperty('--my', 0); });
+    }
   })();
 
   /* ---------- 3. panels grow in ---------- */
