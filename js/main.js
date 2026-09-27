@@ -78,49 +78,7 @@
     return api;
   })();
 
-  /* ---------- SMOOTH SCROLL (mouse wheel / trackpad only — touch keeps its native feel) ---------- */
-  (() => {
-    if (reduce || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
-    const root = document.documentElement;
-    let target = scrollY, cur = scrollY, raf = 0, driving = false;
-    const max = () => root.scrollHeight - innerHeight;
-    const locked = () => getComputedStyle(root).overflowY === 'hidden' || getComputedStyle(document.body).overflowY === 'hidden';
-    const canScrollInside = (el, dy) => {
-      for (; el && el !== document.body; el = el.parentElement) {
-        const cs = getComputedStyle(el);
-        if (/(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) {
-          if ((dy > 0 && el.scrollTop + el.clientHeight < el.scrollHeight - 1) || (dy < 0 && el.scrollTop > 0)) return true;
-        }
-      }
-      return false;
-    };
-    let last = -1;
-    const loop = () => {
-      // someone else moved the page (anchor link, keyboard, scrollbar) → let go
-      if (last >= 0 && Math.abs(scrollY - last) > 3) { driving = false; raf = 0; last = -1; cur = target = scrollY; return; }
-      cur += (target - cur) * .15;
-      if (Math.abs(target - cur) < .5) { cur = target; driving = false; raf = 0; }
-      window.scrollTo(0, cur); last = driving ? Math.round(cur) === Math.round(scrollY) ? scrollY : scrollY : -1;
-      if (driving) raf = requestAnimationFrame(loop);
-    };
-    addEventListener('wheel', e => {
-      if (e.defaultPrevented) return;                 // the pinned STORY already handled this one
-      if (e.ctrlKey || locked() || canScrollInside(e.target, e.deltaY) || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
-      e.preventDefault();
-      if (!driving) { cur = target = scrollY; }
-      const d = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
-      target = Math.max(0, Math.min(max(), target + d));
-      root.style.scrollBehavior = 'auto';
-      if (!driving) { driving = true; raf = requestAnimationFrame(loop); }
-    }, { passive: false });
-    // keyboard, scrollbar, anchor jumps: follow whatever the page did
-    addEventListener('scroll', () => { if (!driving) { cur = target = scrollY; root.style.scrollBehavior = ''; } }, { passive: true });
-    const release = () => { if (driving) { cancelAnimationFrame(raf); driving = false; raf = 0; last = -1; } root.style.scrollBehavior = ''; cur = target = scrollY; };
-    addEventListener('click', e => { if (e.target.closest?.('a[href^="#"], a[href*="index.html#"]')) release(); }, true);
-    addEventListener('keydown', release, true);
-  })();
-
-
+  /* (custom wheel smoothing removed — the browser's own scrolling is smoother and lighter) */
 
   /* ---------- 1. menu + active link ---------- */
   const menuBtn = $('#menuBtn'), links = $('#links');
@@ -1235,12 +1193,17 @@
       { k: 'a0', sc: 'A', len: 1 }, { k: 'a1', sc: 'A', len: 1 },
       { k: 'vap', sc: 'A', st: 'a2', len: 1 },             // I LOST dissolves (scrubbed)
       { k: 'loss', sc: 'A', st: 'a2', len: 3.2 },          // three losses, each shatters as you move on (scrubbed)
-      { k: 'b0', sc: 'B', len: 1 }, { k: 'b1', sc: 'B', len: 1 }, { k: 'b2', sc: 'B', len: 1.2 },
+      { k: 'b0', sc: 'B', len: 1.3 },                      // I SEE WHERE I STAND types itself as you scroll
+      { k: 'b1', sc: 'B', len: 1 }, { k: 'b2', sc: 'B', len: 1.2 },
+      { k: 'bz', sc: 'B', st: 'b2 bz', len: 1.3 },         // zoom into the ring — it opens as a circle onto the next page (scrubbed)
       { k: 'c0', sc: 'C', len: 1 },
       { k: 'cd', sc: 'C', st: 'c0 cd', len: 1 },           // the circle opens (scrubbed)
       { k: 'd0', sc: 'D', len: 1 }, { k: 'd1', sc: 'D', len: 1 },
-      { k: 'hm', sc: 'D', st: 'd1 hmr', len: 1.7 },          // FAIL FAST becomes a hammer and smashes the screen (scrubbed)
-      { k: 'e0', sc: 'E', len: 1 }, { k: 'f0', sc: 'F', len: 1 }];
+      { k: 'hm', sc: 'D', st: 'd1 hmr', len: 2.6 },          // FAIL FAST becomes a hammer and smashes the screen (scrubbed)
+      { k: 'e0', sc: 'E', len: 1 },
+      { k: 'ef', sc: 'E', st: 'e0 ef', len: 1 },           // the page slides off to the right, "So I grabbed it" slides in (scrubbed)
+      { k: 'f0', sc: 'F', len: 1 }];
+    const SCRUB = new Set(['vap', 'loss', 'bz', 'cd', 'hm', 'ef']);
     const N = SEG.length;
     const PAGE = .8, LEAD = .45;     // LEAD: a page shows up when you're 55% of the way to it
     const HOLD = .35, TAIL = 1.25;   // after the last page: a short pause, then the zoom into SMALL WINS
@@ -1270,7 +1233,8 @@
       });
     })(bt);
     let twT = 0;
-    const typeSet = k => { chars.forEach((c, j) => c.classList.toggle('on', j < k)); (k ? chars[k - 1].after(caret) : bt.prepend(caret)); };
+    let typed = -1;
+    const typeSet = k => { if (k === typed) return; typed = k; chars.forEach((c, j) => c.classList.toggle('on', j < k)); (k ? chars[k - 1].after(caret) : bt.prepend(caret)); };
     const typeStop = () => clearTimeout(twT);
     const type = () => {
       typeStop(); typeSet(0);
@@ -1359,7 +1323,7 @@
       if (x1 <= x0) return null;
       x0 = Math.max(0, Math.floor(x0) - 4); y0 = Math.max(0, Math.floor(y0) - 4); x1 = Math.min(Wc, Math.ceil(x1) + 4); y1 = Math.min(Hc, Math.ceil(y1) + 4);
       const bw = x1 - x0, bh = y1 - y0, data = o.getImageData(x0, y0, bw, bh).data;
-      const gap = Math.max(2, Math.round(Math.sqrt(bw * bh / 30000)));
+      const gap = Math.max(3, Math.round(Math.sqrt(bw * bh / (innerWidth < 760 ? 3500 : 8000))));
       const P = [];
       let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
       for (let y = 0; y < bh; y += gap) for (let x = 0; x < bw; x += gap) {
@@ -1380,7 +1344,7 @@
       if (!VP) return;
       if (Math.abs(t - vLast) < .002) return;
       vLast = t;
-      const { P, gap, Wc, Hc } = VP, dpr = Math.min(2, devicePixelRatio || 1);
+      const { P, gap, Wc, Hc } = VP, dpr = 1;
       if (cv.width !== Wc * dpr) { cv.width = Wc * dpr; cv.height = Hc * dpr; }
       g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, Wc, Hc);
       let fill = '';
@@ -1404,7 +1368,7 @@
       const card = $('.lx-card', el), txt = $('.lx-txt', el), stamp = $('.l-stamp', card);
       const img = card.dataset.img, pos = card.dataset.pos || '50% 50%';
       let seed = 97 + i * 31; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-      const C = 5, R = 4, P = [];
+      const small = innerWidth < 760, C = 3, R = small ? 2 : 3, P = [];
       for (let r = 0; r <= R; r++) for (let c = 0; c <= C; c++) {
         const edge = r === 0 || r === R || c === 0 || c === C;
         P.push([clamp(c / C * 100 + (edge && (c === 0 || c === C) ? 0 : (rnd() - .5) * 13), 0, 100), clamp(r / R * 100 + (edge && (r === 0 || r === R) ? 0 : (rnd() - .5) * 17), 0, 100)]);
@@ -1417,10 +1381,16 @@
         if (rnd() < .5) tris.push([a, b, e], [a, e, d]); else tris.push([a, b, d], [b, e, d]);
       }
       const sh = tris.map(t => {
+        // each shard is only as big as its own triangle (not a full copy of the photo) — much lighter to draw
         const d = document.createElement('i'); d.className = 'lx-sh';
-        d.style.clipPath = `polygon(${t.map(p => p[0].toFixed(2) + '% ' + p[1].toFixed(2) + '%').join(',')})`;
+        const x0 = Math.min(...t.map(p => p[0])), x1 = Math.max(...t.map(p => p[0])), y0 = Math.min(...t.map(p => p[1])), y1 = Math.max(...t.map(p => p[1]));
+        const bw = Math.max(.5, x1 - x0), bh = Math.max(.5, y1 - y0);
+        d.style.left = x0 + '%'; d.style.top = y0 + '%'; d.style.width = bw + '%'; d.style.height = bh + '%';
+        d.style.clipPath = `polygon(${t.map(p => ((p[0] - x0) / bw * 100).toFixed(2) + '% ' + ((p[1] - y0) / bh * 100).toFixed(2) + '%').join(',')})`;
+        const bs = `${(10000 / bw).toFixed(2)}% ${(10000 / bh).toFixed(2)}%`;
+        const bp = `${(bw >= 99.9 ? 0 : x0 / (100 - bw) * 100).toFixed(2)}% ${(bh >= 99.9 ? 0 : y0 / (100 - bh) * 100).toFixed(2)}%`;
         d.style.backgroundImage = `linear-gradient(125deg,rgba(255,255,255,.16),rgba(255,255,255,0) 38%,rgba(255,255,255,0) 70%,rgba(255,255,255,.07)),url("${img}")`;
-        d.style.backgroundPosition = `0 0, ${pos}`;
+        d.style.backgroundSize = `${bs}, ${bs}`; d.style.backgroundPosition = `${bp}, ${bp}`;
         card.prepend(d);
         const cx = (t[0][0] + t[1][0] + t[2][0]) / 3, cy = (t[0][1] + t[1][1] + t[2][1]) / 3;
         const dx = cx - hit[0], dy = cy - hit[1], dl = Math.hypot(dx, dy) || 1;
@@ -1476,7 +1446,6 @@
         }
         const tIn = clamp((1 - rel) / .6), tOut = 1 - clamp(s * 1.6);
         o.txt.style.opacity = (tIn * tOut).toFixed(3);
-        o.txt.style.filter = s > 0 ? `blur(${(s * 8).toFixed(1)}px)` : '';
         o.txt.style.transform = `translate(${o.tx.toFixed(1)}px, ${(o.ty - s * 50).toFixed(1)}px)`;
       });
     }
@@ -1644,7 +1613,7 @@
     };
     function hammer(t) {                                    // t: 0 = the motto, 1 = the page has fallen away
       if (t < 0) {
-        if (hmLast !== -1) { dLay.style.transform = ''; pst.style.removeProperty('--mo'); if (dVs) dVs.style.opacity = ''; hmLast = -1; }
+        if (hmLast !== -1) { dLay.style.transform = ''; pst.style.removeProperty('--mo'); if (dVs) dVs.style.opacity = ''; hmLast = -1; if (HM) HM.m = null; }
         return;
       }
       if (!HM) hmLayout();
@@ -1652,24 +1621,25 @@
       const lerp = (a, b, k) => a + (b - a) * k;
       const { hw, hh, hl, hit } = HM;
       // where the small motto sits (the hammer head starts exactly there)
-      const mr = dMotto.getBoundingClientRect(), pr = pst.getBoundingClientRect();
-      const mx = mr.left + mr.width / 2 - pr.left, my = mr.top + mr.height / 2 - pr.top, s0 = Math.min(1, mr.width / hw);
-      const f1 = ease(clamp(t / .2)), f2 = ease(clamp((t - .2) / .24)), f3 = clamp((t - .44) / .1), f4 = clamp((t - .54) / .1), f5 = ease(clamp((t - .66) / .34));
+      if (!HM.m) { const mr = dMotto.getBoundingClientRect(), pr = pst.getBoundingClientRect(); HM.m = { x: mr.left + mr.width / 2 - pr.left, y: mr.top + mr.height / 2 - pr.top, s: Math.min(1, mr.width / hw) }; }
+      const mx = HM.m.x, my = HM.m.y, s0 = HM.m.s;
+      // 0–.14 the words fade out · .14–.32 the hammer forms · .32–.52 wind up · .52–.6 swing · .6 impact · .74–1 the page falls
+      const f1 = ease(clamp((t - .14) / .18)), f2 = ease(clamp((t - .32) / .2)), f3 = clamp((t - .52) / .08), f4 = clamp((t - .6) / .08), f5 = ease(clamp((t - .74) / .26));
       const px = W / 2, py = H * .93;
       const sc = lerp(s0, 1, f1) * (1 + .75 * f3 * f3) * (1 - .12 * f4);
       const x = lerp(mx, px, f1), y = lerp(my + (hl + hh / 2) * s0, py, f1);
       const rx = f3 > 0 ? lerp(62, -38, f3 * f3) + 10 * f4 : lerp(0, 62, f2);  // wind up (away), then swing at you
       const rz = lerp(0, -10, f2) * (1 - f3);
       hmRot.style.transform = `translate(${(x - hw / 2).toFixed(1)}px, ${(y - hh - hl).toFixed(1)}px) rotateX(${rx.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg) scale(${sc.toFixed(3)})`;
-      hmRot.style.opacity = (1 - clamp((t - .58) / .08)).toFixed(3);
+      hmRot.style.opacity = (t < .14 ? 0 : 1 - clamp((t - .64) / .08)).toFixed(3);
       hmRot.style.setProperty('--hs', f1.toFixed(3)); hmRot.style.setProperty('--hb', clamp(f1 * 1.5).toFixed(3));
-      pst.style.setProperty('--mo', t > .005 ? '0' : '1');
-      if (dVs) dVs.style.opacity = (1 - clamp(t / .14)).toFixed(3);
+      pst.style.setProperty('--mo', t >= .14 ? '0' : '1');
+      if (dVs) dVs.style.opacity = (1 - clamp(t / .12)).toFixed(3);
       // impact
-      const c = clamp((t - .54) / .1);
+      const c = clamp((t - .6) / .08);
       crackPaths.forEach(q => { q.p.style.strokeDashoffset = (1 - clamp((c - q.delay) / (1 - q.delay * .6))).toFixed(3); });
-      hmFlash.style.opacity = (t >= .54 ? Math.max(0, 1 - (t - .54) / .07) : 0).toFixed(3);
-      if (hmLast >= 0 && hmLast < .54 && t >= .54 && !reduce) {
+      hmFlash.style.opacity = (t >= .6 ? Math.max(0, 1 - (t - .6) / .07) : 0).toFixed(3);
+      if (hmLast >= 0 && hmLast < .6 && t >= .6 && !reduce) {
         sound.play('impact');
         pst.animate([{ transform: 'none' }, { transform: 'translate(-12px,7px)' }, { transform: 'translate(9px,-5px)' }, { transform: 'translate(-4px,2px)' }, { transform: 'none' }], { duration: 420, easing: 'ease-out' });
         if (navigator.vibrate) try { navigator.vibrate(40); } catch (_) {}
@@ -1677,6 +1647,40 @@
       // the cracked page falls away and the next page is underneath
       dLay.style.transform = f5 ? `translateY(${(f5 * 108).toFixed(2)}%) rotate(${(f5 * 4).toFixed(2)}deg)` : '';
       hmLast = t;
+    }
+
+    /* ---- zoom into the ring: it opens up as a circle and you fly through it into I GET IT BETTER ---- */
+    const cLay = lay('C'), bHead = $('.b-head', pst), cBeat = $('.beat', cLay);
+    let PO = null, poLast = -1;
+    function portal(t) {
+      if (t < 0) {
+        if (poLast !== -1) { ringWrap.style.transform = ringWrap.style.opacity = bHead.style.opacity = cLay.style.clipPath = cBeat.style.transform = ''; poLast = -1; PO = null; }
+        return;
+      }
+      if (!PO) {
+        const pr = pst.getBoundingClientRect(), rr = ring.getBoundingClientRect();
+        const x = rr.left + rr.width / 2 - pr.left, y = rr.top + rr.height / 2 - pr.top;
+        PO = { x, y, R: Math.hypot(Math.max(x, W - x), Math.max(y, H - y)) + 4 };
+      }
+      const e = ease(t);
+      ringWrap.style.transform = `scale(${(1 + e * 4.5).toFixed(3)})`;
+      ringWrap.style.opacity = (1 - clamp((t - .35) / .4)).toFixed(3);
+      bHead.style.opacity = (1 - clamp(t / .3)).toFixed(3);
+      const r = PO.R * clamp((t - .12) / .88) ** 1.6;
+      cLay.style.clipPath = `circle(${r.toFixed(1)}px at ${PO.x.toFixed(0)}px ${PO.y.toFixed(0)}px)`;
+      cBeat.style.transform = `scale(${(1.35 - .35 * e).toFixed(3)})`;
+      poLast = t;
+    }
+
+    /* ---- the opportunity page slides off to the right and "So I grabbed it" slides in behind it ---- */
+    const eLay = lay('E'), fLay = lay('F');
+    let slLast = -1;
+    function slide(t) {
+      if (t < 0) { if (slLast !== -1) { eLay.style.transform = fLay.style.transform = ''; slLast = -1; } return; }
+      const e = ease(t);
+      eLay.style.transform = `translateX(${(e * 100).toFixed(2)}%)`;
+      fLay.style.transform = `translateX(${((e - 1) * 100).toFixed(2)}%)`;
+      slLast = t;
     }
 
     /* ---- measure ---- */
@@ -1701,7 +1705,7 @@
       pst.style.setProperty('--ddy', (H / 2 - pad - mv - (dmh * ds - mv) / 2).toFixed(1) + 'px');
       pst.style.setProperty('--vsb', (mv + pad + 18).toFixed(0) + 'px');
       ringLayout(); lossLayout(); hmLayout();
-      VP = null; vLast = -1; circO = null;
+      VP = null; vLast = -1; circO = null; PO = null;
     }
 
     /* ---- apply a page ---- */
@@ -1719,16 +1723,15 @@
       const sg = SEG[i], sc = sg.sc, k = sg.k, pk = prev >= 0 ? SEG[prev].k : null, psc = prev >= 0 ? SEG[prev].sc : null;
       const jump = prev < 0 || Math.abs(i - prev) > 1;
       unshatter();
-      if (jump) { pst.classList.add('jump'); requestAnimationFrame(() => requestAnimationFrame(() => pst.classList.remove('jump'))); }
+      // jumping, or leaving / entering a scroll-driven moment: swap layers instantly (no fade → nothing left behind)
+      if (jump || SCRUB.has(k) || SCRUB.has(pk)) { pst.classList.add('jump'); requestAnimationFrame(() => requestAnimationFrame(() => pst.classList.remove('jump'))); }
       pst.classList.remove(...ALL); pst.classList.add(...sg.cls);
-      if (!jump && !reduce && pk === 'd1' && k === 'e0') shatter();
       if (psc && psc !== sc) {
         $$('.cube', lay(psc)).forEach(c => c.classList.remove('on'));
         if (psc === 'F') $$('.beat', lay('F')).forEach(b => b.classList.remove('seen'));
       }
-      if (sc === 'B') { if (psc !== 'B') { if (!jump && k === 'b0' && !reduce) type(); else { typeStop(); typeSet(chars.length); } } }
-      else if (psc === 'B') { typeStop(); if (sc === 'A') typeSet(0); }
-      if (k === 'b2') ringStart(!jump); else ringStop();
+      if (sc !== 'B') typeSet(sc === 'A' ? 0 : chars.length); else if (k !== 'b0') typeSet(chars.length);
+      if (k === 'b2' || k === 'bz') ringStart(!jump && k === 'b2'); else ringStop();
       $$('.vs', pst).forEach((v, n) => { clearTimeout(v._t); if (k === 'd1' || k === 'hm') { if (!v.classList.contains('on')) v._t = setTimeout(() => v.classList.add('on'), jump || k === 'hm' ? 0 : 900 + n * 170); } else v.classList.remove('on'); });
       if (inView) requestAnimationFrame(wake);
     }
@@ -1741,8 +1744,11 @@
       const at = k => (u - starts[idx(k)]);
       vapor(cur === idx('vap') ? clamp(at('vap') / .9, 0, .999) : -1);
       if (cur === idx('vap') || cur === idx('loss')) losses(at('vap') - 1);
+      if (cur === idx('b0')) typeSet(Math.round(clamp(at('b0') / 1.05) * chars.length));
+      portal(cur === idx('bz') ? clamp(at('bz') / SEG[idx('bz')].len) : -1);
       circle(at('cd'));
       hammer(cur === idx('hm') ? clamp(at('hm') / SEG[idx('hm')].len) : -1);
+      slide(cur === idx('ef') ? clamp(at('ef') / SEG[idx('ef')].len) : -1);
       zoom(y);
     };
     addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(sync); } }, { passive: true });
@@ -1907,7 +1913,7 @@
   })();
 
   /* certificates button: a little digital rain behind the fanned certificates */
-  window.matrixRain?.($('.cc-rain'), { size: 14, fade: 'rgba(11,11,11,.12)', fps: 22, color: '#2f7fd6', head: '#f6f6f3' });
+  window.matrixRain?.($('.cc-rain'), { size: 16, fade: 'rgba(11,11,11,.12)', fps: innerWidth < 760 ? 14 : 20, color: '#2f7fd6', head: '#f6f6f3' });
 
   // start the hero intro last, once every helper above exists
   /* ---- 0. INTRO — Marvel-style: one photo at a time fills the whole word PEE while the camera pulls back.

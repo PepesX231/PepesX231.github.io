@@ -1146,7 +1146,7 @@ html.js .pst.a2 .a-log{transition:opacity .35s ease,visibility 0s}
 .lx{position:absolute;left:50%;top:50%;width:0;height:0;transform-style:preserve-3d;will-change:transform}
 .lx-card{--lw:min(52vw,760px,110vh);position:absolute;width:var(--lw);aspect-ratio:16/9;left:calc(var(--lw) / -2);top:calc(var(--lw) * -.28125);transform-style:preserve-3d;will-change:transform}
 .lx-card::before{content:"";position:absolute;inset:8% 6%;background:#000;filter:blur(34px);opacity:calc(.75 * (1 - var(--s,0)));transform:translateZ(-60px) translateY(24px)}
-.lx-sh{position:absolute;inset:0;background-size:100% 100%,cover;background-repeat:no-repeat;will-change:transform,opacity}
+.lx-sh{position:absolute;background-repeat:no-repeat;transform-origin:50% 50%}
 .lx-card svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;transform:translateZ(1px);opacity:calc(1 - var(--s,0) * 3)}
 .lx-card path{fill:none;stroke:rgba(255,255,255,.62);stroke-width:1.2;stroke-dasharray:1;stroke-dashoffset:1;filter:drop-shadow(0 0 2px rgba(255,255,255,.5))}
 .lx-card .l-stamp{opacity:1;animation:none;z-index:3;transform:translateZ(3px) rotate(-8deg);right:16px;top:16px}
@@ -1246,3 +1246,30 @@ html.has-cur .cx .ct{cursor:none}
 .vx{display:block;width:100%;height:auto;touch-action:pan-y;cursor:crosshair}
 html.has-cur .vx{cursor:none}
 .vx-hint{display:block;margin-top:10px;color:var(--mute-l)!important}
+
+/* ---------- STORY v4: ring → portal, slide to "grabbed" ---------- */
+html.js .ly-c{background:#111215}
+html.js .pst.bz .ly-c{opacity:1;visibility:visible;transition:none;z-index:4}
+html.js .pst.ef .ly-f{opacity:1;visibility:visible;transition:none}
+html.js .pst.bz .ring-wrap{transition:none}
+.ly-c .beat{transform-origin:50% 45%}
+
+/* =========================================================
+   PERFORMANCE — lighter effects (no live blur/shadow filters on moving things,
+   fewer GPU layers, skip rendering sections that are off screen)
+   ========================================================= */
+.focus{will-change:auto}
+.lx,.lx-card,.lx-sh,.lx-txt{will-change:auto}
+.lx-card path,.hm-crack path{filter:none}
+.lx-card::before{filter:none;inset:-4% -2%;background:radial-gradient(closest-side,rgba(0,0,0,.75),transparent);transform:translateZ(-60px) translateY(24px)}
+.wk-glow{filter:none}
+.hero-bg{will-change:auto}
+.panel-wrap,.wk-after,.foot{content-visibility:auto;contain-intrinsic-size:auto 900px}
+@media (max-width:900px),(pointer:coarse){
+  .nav.glass,.snd,.rl-ui,.cx .chip,.cs-ui{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+  .nav.glass{background:rgba(14,14,16,.94)}
+  .snd{background:rgba(14,14,16,.9)}
+  .rc-k{display:none}                          /* no back faces on phones */
+  .wk-face,.wk-slab.is-on .wk-face{box-shadow:0 18px 36px rgba(0,0,0,.5)}
+  .cc-stack img{animation:none}
+}
