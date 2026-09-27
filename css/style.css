@@ -1308,3 +1308,8 @@ html.js .wk-stage{overflow:clip visible;overflow-x:clip;overflow-y:visible;
 #about.panel-wrap{padding-bottom:0}
 #contact.panel-wrap{padding-top:0}
 #contact .panel.contact{border-top:1px solid var(--line-l);padding-top:clamp(40px,6vw,88px)}
+/* GIVE: the pieces fall out of this page and on into THE WORK (canvas is 2 screens tall, drawn over the next section) */
+.gv{z-index:3}
+.gv-stage{overflow:visible}
+.gv-cv{height:200%;bottom:auto}
+.wk-side{display:none}

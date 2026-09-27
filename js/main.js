@@ -1961,51 +1961,83 @@
         n.replaceWith(f);
       } else words.push(n);
     });
-    let W = 0, H = 0, top = 0, P = [], tk = false, last = -2;
+    // 1) the white block hands a blue square to each of the four grey blocks (like before)
+    // 2) all blue → it charges up  3) everything bursts into small blocks across the screen
+    // 4) they all fall — out of this page and down into THE WORK, whose cards drop in right after
+    let W = 0, H = 0, top = 0, P = [], tk = false, last = -9, SC = 1;
     let seed = 3; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+    const ease = t => 1 - Math.pow(1 - t, 3);
+    // the little scene, in its own units (same layout as the old CSS version): giver + four receivers
+    const GIVER = { x: 14, y: -40, s: 40 }, KS = [90, 128, 166, 204].map(x => ({ x, y: -14, s: 14 })), CW = 240;
     const layout = () => {
       W = stage.clientWidth; H = stage.clientHeight;
-      sec.style.height = Math.round(H * 2.6) + 'px';
+      sec.style.height = Math.round(H * 2.8) + 'px';
       top = sec.getBoundingClientRect().top + scrollY;
-      cv.width = W; cv.height = H;                                     // 1× is plenty for squares
-      seed = 3; const n = W < 700 ? 60 : 110;
-      P = Array.from({ length: n }, (_, i) => {
-        const a = rnd() * Math.PI * 2, d = (.18 + rnd() * .62) * Math.hypot(W, H) * .5;
-        return { a, d, s: 5 + rnd() * 13, c: rnd() < .72 ? '#4da3ff' : rnd() < .5 ? '#f6f6f3' : '#2b78cc', dl: rnd() * .12, g: .6 + rnd() * .8, spin: (rnd() - .5) * 8 };
+      cv.width = W; cv.height = H * 2; cv.style.height = H * 2 + 'px';     // taller than the screen: the pieces fall on down into THE WORK
+      SC = Math.min(2.4, W / CW * .55);
+      seed = 3;
+      P = [];
+      const src = [GIVER, ...KS];
+      src.forEach((b, bi) => {
+        const n = bi ? (W < 700 ? 9 : 16) : (W < 700 ? 18 : 30);
+        for (let i = 0; i < n; i++) P.push({ bi, ox: rnd(), oy: rnd(), a: rnd() * Math.PI * 2, d: (.12 + rnd() * .55) * Math.hypot(W, H) * .5, s: 4 + rnd() * (bi ? 8 : 12), c: bi ? (rnd() < .8 ? '#4da3ff' : '#2b78cc') : (rnd() < .6 ? '#f6f6f3' : '#4da3ff'), g: .7 + rnd() * .7, spin: (rnd() - .5) * 9, dl: rnd() * .15 });
       });
-      last = -2; draw();
+      last = -9; draw();
     };
-    const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
     const draw = () => {
       tk = false;
-      const rel = scrollY - top, p = clamp(rel / (sec.offsetHeight - H || 1), -1, 1.4);
-      if (rel < -H || rel > sec.offsetHeight) return;
-      if (Math.abs(p - last) < .001) return;
+      const rel = scrollY - top, span = sec.offsetHeight - H || 1, p = rel / span;
+      if (p < -1.2 || p > 2.4) return;
+      if (Math.abs(p - last) < .0008) return;
       last = p;
       const pp = clamp(p);
-      // words
       const wk = clamp(pp / .3) * (words.length + 1);
       words.forEach((w, i) => (w.style.opacity = (.14 + .86 * clamp(wk - i)).toFixed(3)));
-      txt.style.transform = `translateY(${(-clamp((pp - .62) / .38) * H * .35).toFixed(1)}px)`;
-      txt.style.opacity = (1 - clamp((pp - .7) / .3)).toFixed(3);
-      // blocks
-      g.clearRect(0, 0, W, H);
-      const cx = W / 2, cy = H * .3;
-      const core = clamp(pp / .3), burst = clamp((pp - .3) / .32), fall = clamp((pp - .56) / .44);
-      if (burst < .02) {                                                 // the single blue block, growing a little
-        const s = 18 + 10 * core;
-        g.fillStyle = '#4da3ff'; g.globalAlpha = .25 * core; g.fillRect(cx - s, cy - s, s * 2, s * 2);
-        g.globalAlpha = 1; g.fillRect(cx - s / 2, cy - s / 2, s, s);
+      txt.style.transform = `translateY(${(-clamp((pp - .56) / .4) * H * .35).toFixed(1)}px)`;
+      txt.style.opacity = (1 - clamp((pp - .62) / .3)).toFixed(3);
+      g.clearRect(0, 0, W, H * 2);
+      const ox = W / 2 - CW * SC / 2, oy = H * .3;                         // scene origin (floor line)
+      const X = u => ox + u * SC, Y = v => oy + v * SC;
+      const charge = clamp((pp - .34) / .14), burst = clamp((pp - .48) / .16), fall = Math.max(0, (p - .62) / 1.0);   // still falling while THE WORK cards drop in
+      if (burst < .01) {
+        const jit = charge * charge * 3.2 * SC;
+        const J = () => (Math.random() - .5) * jit;
+        // floor
+        g.fillStyle = '#2a2a2d'; g.fillRect(X(0), Y(0), CW * SC, Math.max(1, SC * .8));
+        // glow while charging
+        if (charge > 0) {
+          g.fillStyle = `rgba(77,163,255,${(.12 + .25 * charge).toFixed(3)})`;
+          const pad = (6 + 10 * charge) * SC;
+          [GIVER, ...KS].forEach(b => g.fillRect(X(b.x) - pad / 2, Y(b.y) - pad / 2, b.s * SC + pad, b.s * SC + pad));
+        }
+        // giver (white) with the blue core inside
+        const gx = X(GIVER.x) + J(), gy = Y(GIVER.y) + J();
+        g.fillStyle = '#f6f6f3'; g.fillRect(gx, gy, GIVER.s * SC, GIVER.s * SC);
+        const cs = (8 + 8 * charge) * SC;
+        g.fillStyle = '#4da3ff'; g.fillRect(gx + (GIVER.s * SC - cs) / 2, gy + (GIVER.s * SC - cs) / 2, cs, cs);
+        // four receivers + the blue squares tossed to them
+        KS.forEach((k, i) => {
+          const t = clamp((pp - (.05 + i * .055)) / .09), got = t >= 1;
+          const kx = X(k.x) + J(), ky = Y(k.y) + J(), ks = k.s * SC;
+          g.fillStyle = got ? '#4da3ff' : '#38383b'; g.fillRect(kx, ky, ks, ks);
+          if (t > 0 && !got) {                                          // in flight: an arc from the giver to this block
+            const sx = X(GIVER.x + GIVER.s / 2), sy = Y(GIVER.y + GIVER.s / 2), ex = kx + ks / 2, ey = ky + ks / 2;
+            const x = sx + (ex - sx) * t, y = sy + (ey - sy) * t - Math.sin(t * Math.PI) * 58 * SC, q = 8 * SC;
+            g.save(); g.translate(x, y); g.rotate(t * Math.PI * 2); g.fillStyle = '#4da3ff'; g.fillRect(-q / 2, -q / 2, q, q); g.restore();
+          }
+        });
         return;
       }
+      // burst → fall
+      const src = [GIVER, ...KS];
       for (const q of P) {
-        const b = clamp((burst - q.dl) / (1 - q.dl)), e = 1 - Math.pow(1 - b, 3);
-        const x = cx + Math.cos(q.a) * q.d * e, y = cy + Math.sin(q.a) * q.d * e * .75 + fall * fall * H * 1.25 * q.g;
-        if (y > H + 30) continue;
-        g.save(); g.translate(x, y); g.rotate(q.spin * (e + fall));
-        g.fillStyle = q.c; g.globalAlpha = .95; g.fillRect(-q.s / 2, -q.s / 2, q.s, q.s); g.restore();
+        const b = src[q.bi], bx = X(b.x + b.s * q.ox), by = Y(b.y + b.s * q.oy);
+        const e = ease(clamp((burst - q.dl) / (1 - q.dl)));
+        const x = bx + Math.cos(q.a) * q.d * e, y = by + Math.sin(q.a) * q.d * e * .7 + fall * fall * H * 1.35 * q.g;
+        if (y > H * 2 + 20 || y < -40) continue;
+        g.save(); g.translate(x, y); g.rotate(q.spin * (e + fall)); g.fillStyle = q.c; g.fillRect(-q.s / 2, -q.s / 2, q.s, q.s); g.restore();
       }
-      g.globalAlpha = 1;
     };
     addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(draw); } }, { passive: true });
     addEventListener('resize', layout); addEventListener('load', layout); document.fonts?.ready.then(layout);
