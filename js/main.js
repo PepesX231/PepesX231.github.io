@@ -2440,13 +2440,10 @@
     start();
 
     function start() {
-      // a comic book whose pages flip faster and faster while the camera pulls back → the PEE logo box
-      const mv = add('mv', `<div class="mv-cam"><div class="mv-book">
-          <div class="mv-pg mv-left"></div><div class="mv-pg mv-right"></div>
-          <div class="mv-flip"><div class="mv-pg mv-fr"></div><div class="mv-pg mv-bk"></div></div>
-        </div></div>
-        <div class="mv-logo"><b>PEE</b><i></i></div>`);
-      const cam = $('.mv-cam', mv), left = $('.mv-left', mv), right = $('.mv-right', mv), flip = $('.mv-flip', mv), fr = $('.mv-fr', mv), bk = $('.mv-bk', mv), logo = $('.mv-logo', mv);
+      // Marvel Comics style: full-screen comic panels cut faster and faster, PEE appears in front with the comics
+      // flickering inside its letters, then the letters turn solid white and the page carries on — no break
+      const mv = add('mv', '<div class="mv-f"><i class="mv-p"></i><i class="mv-p"></i><i class="mv-p"></i></div>');
+      const fr = $('.mv-f', mv), ps = $$('.mv-p', mv);
       const skip = document.createElement('button'); skip.type = 'button'; skip.className = 'intro-skip mono'; skip.textContent = 'Skip intro ›'; document.body.appendChild(skip);
       const timers = [], anims = [];
       const at = (ms, fn) => timers.push(setTimeout(fn, ms));
@@ -2455,15 +2452,15 @@
 
       const land = () => {
         h1.style.opacity = '';
+        h1.classList.remove('shots');
         sound.play('impact');
         run(h1, [{ filter: 'brightness(2.4)' }, { filter: 'none' }], { duration: 600, easing: 'ease-out' });
         if (!reduce) $('#page').animate([{ transform: 'none' }, { transform: 'translateY(6px)' }, { transform: 'translateY(-2px)' }, { transform: 'none' }], { duration: 260, easing: 'ease-out' });
-        // UI first (nav + hello + motto slide up as the block lands), the game world behind comes last
         afterRoll = () => { root.classList.remove('intro-on'); root.classList.add('hero-in'); setTimeout(() => root.classList.remove('bg-wait'), 1300); };
         at(300, () => heroRoll(true));
         at(4500, afterRoll);
       };
-      const cleanup = () => { skip.remove(); mv.animate([{ opacity: getComputedStyle(mv).opacity }, { opacity: 0 }], { duration: 450, fill: 'forwards' }).finished.then(() => mv.remove()); removeEventListener('wheel', finish); };
+      const cleanup = () => { skip.remove(); mv.animate([{ opacity: getComputedStyle(mv).opacity }, { opacity: 0 }], { duration: 600, fill: 'forwards' }).finished.then(() => mv.remove()); removeEventListener('wheel', finish); };
       function finish() {
         if (ended) return; ended = true;
         timers.forEach(clearTimeout); anims.forEach(a => a.cancel());
@@ -2472,7 +2469,6 @@
       skip.addEventListener('click', finish);
       addEventListener('wheel', finish, { passive: true });
 
-      // wait (max 2.5 s) for a dozen photos; only ever show loaded ones
       new Promise(res => {
         const t0 = performance.now();
         const chk = () => (ready.length >= Math.min(10, shots.length) || performance.now() - t0 > 2500) ? res() : setTimeout(chk, 60);
@@ -2480,44 +2476,41 @@
       }).then(() => {
         if (ended) return;
         const pics = shots.filter(s => ready.includes(s)); if (!pics.length) { finish(); return; }
-        const url = i => `url("${pics[((i % pics.length) + pics.length) % pics.length]}")`;
-        const F = reduce ? 6 : 34;                                        // number of page turns (the photos go round ~1.5×)
-        const dur = Array.from({ length: F }, (_, k) => 300 - 250 * Math.pow(k / (F - 1), .7));   // slow → a blur
+        let pi = 0; const next = () => `url("${pics[pi++ % pics.length]}")`;
+        const C = reduce ? 8 : 40;                                         // number of cuts
+        const dur = Array.from({ length: C }, (_, k) => 190 - 140 * Math.pow(k / (C - 1), .6));   // 190 ms → 50 ms
         const total = dur.reduce((a, b) => a + b, 0);
+        const PEE_AT = total * .62;                                        // PEE shows up while the comics are still flying
         mv.classList.add('go');
-        left.style.backgroundImage = url(-1); right.style.backgroundImage = url(1);
-        // the camera starts right on the page and pulls back while the pages fly
-        run(cam, [{ transform: 'scale(2.3) rotateX(18deg) rotateZ(-4deg)' }, { transform: 'scale(1.25) rotateX(12deg) rotateZ(-2deg)', offset: .55 }, { transform: `scale(${innerWidth < 700 ? 1.08 : .86}) rotateX(6deg) rotateZ(0deg)` }],
-          { duration: total + 350, easing: 'cubic-bezier(.35,0,.25,1)', fill: 'forwards' });
-        sound.play('whoosh', total / 1000 * .8);
+        // the camera slowly pulls back over the whole thing
+        run(fr, [{ scale: 1.35 }, { scale: 1.02 }], { duration: total + 900, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'forwards' });
+        sound.play('whoosh', total / 1000 * .9);
+        const LAY = ['l1', 'l2', 'l3', 'l2b', 'l1', 'l3b'];
         let k = 0;
-        const turn = () => {
+        const cut = () => {
           if (ended) return;
-          const d = dur[k];
-          fr.style.backgroundImage = url(k); bk.style.backgroundImage = url(k + 11);
-          right.style.backgroundImage = url(k + 1);
-          flip.getAnimations().forEach(a => a.cancel());
-          run(flip, [{ transform: 'rotateY(0deg)' }, { transform: 'rotateY(-180deg)' }], { duration: d * 1.05, easing: k < 6 ? 'cubic-bezier(.4,0,.3,1)' : 'linear', fill: 'forwards' });
-          if (k % 2 === 0 || d > 120) sound.play('tick', k);
-          at(d, () => { left.style.backgroundImage = url(k + 11); k++; if (k < F) turn(); else logoIn(); });
+          fr.className = 'mv-f ' + LAY[(k * 7 + (k >> 2)) % LAY.length];
+          ps.forEach(p => { p.style.backgroundImage = next(); p.style.backgroundPosition = `${(k * 37) % 100}% ${(k * 53) % 100}%`; });
+          fr.style.rotate = `${((k * 73) % 7 - 3) * .6}deg`;
+          if (k >= C * .6) h1.style.setProperty('--shot', `url("${new URL(pics[(pi + 5) % pics.length], location.href).href}")`);   // the letters flicker with other comics
+          if (k % 2 === 0) sound.play('tick', k);
+          k++;
+          if (k < C) at(dur[k - 1], cut); else at(dur[C - 1], outro);
         };
-        turn();
-        // the logo: a blue box slams in front of the book, light sweeps across, then it becomes the big PEE on the page
-        function logoIn() {
+        cut();
+        // PEE appears in front, filled with the flickering comics
+        at(PEE_AT, () => {
           if (ended) return;
-          mv.classList.add('lg');
+          h1.classList.add('shots'); h1.style.opacity = '';
+          mv.classList.add('dim');
           sound.play('open');
-          run(logo, [{ transform: 'translate(-50%,-50%) scale(1.7)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(.97)', opacity: 1, offset: .55 }, { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 }],
-            { duration: 520, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
-          run($('i', logo), [{ transform: 'translateX(-120%) skewX(-20deg)' }, { transform: 'translateX(260%) skewX(-20deg)' }], { duration: 900, delay: 380, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'both' });
-          at(1500, () => {
-            if (ended) return;
-            const r = h1.getBoundingClientRect(), lr = logo.getBoundingClientRect();
-            const sx = r.width / lr.width, dx = r.left + r.width / 2 - innerWidth / 2, dy = r.top + r.height / 2 - innerHeight / 2;
-            run(logo, [{ transform: 'translate(-50%,-50%) scale(1)', opacity: 1 }, { transform: `translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(${sx.toFixed(3)})`, opacity: 0 }],
-              { duration: 650, easing: 'cubic-bezier(.6,0,.2,1)', fill: 'forwards' });
-            at(420, () => { if (ended) return; ended = true; cleanup(); land(); });
-          });
+          run(h1, [{ transform: 'scale(1.5)', opacity: 0, letterSpacing: '.08em' }, { transform: 'scale(1)', opacity: 1, letterSpacing: '-.005em' }], { duration: total - PEE_AT + 200, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
+        });
+        // the comics stop, the letters go solid, the page lands
+        function outro() {
+          if (ended) return;
+          ended = true;
+          cleanup(); land();
         }
       });
     }
