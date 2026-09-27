@@ -372,8 +372,13 @@
       card.style.transform = `translate(${(C.x - cw / 2).toFixed(1)}px, ${(C.y - ch / 2).toFixed(1)}px) rotate(${(-ang * 180 / Math.PI).toFixed(2)}deg) rotateY(${ry.toFixed(1)}deg) rotateX(${rx.toFixed(1)}deg)`;
       card.style.setProperty('--gl', (50 + ry).toFixed(0) + '%');
     };
-    const loop = () => { step(); step(); draw(); raf = visible || drag ? requestAnimationFrame(loop) : 0; };
-    const kick = () => { if (!raf) raf = requestAnimationFrame(loop); };
+    let still = 0;
+    const loop = () => {
+      step(); step(); draw();
+      still = !drag && Math.hypot(C.x - C.px, C.y - C.py) < .04 ? still + 1 : 0;
+      raf = (visible && still < 45) || drag ? requestAnimationFrame(loop) : 0;     // sleeps when it has stopped swinging
+    };
+    const kick = () => { still = 0; if (!raf) raf = requestAnimationFrame(loop); };
     // pointer: drag / fling / click
     let down = null;
     const local = e => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
@@ -1591,9 +1596,11 @@
     const dVs = $('.d-vs', pst), dMotto = $('.d-motto', pst);
     let HM = null, hmLast = -1, crackPaths = [];
     const hmLayout = () => {
-      const hw = Math.min(560, W * .82), hh = hw * .3, hl = Math.min(H * .36, hw * .75);
+      // a side swing like a windshield wiper: the pivot sits bottom-left, the head sweeps up and across and hits
+      const mob = W < 760, hw = Math.min(480, W * (mob ? .5 : .36)), hh = hw * .3, hl = Math.min(H * (mob ? .36 : .38), W * (mob ? .55 : .4));
       pst.style.setProperty('--hw', hw.toFixed(0) + 'px'); pst.style.setProperty('--hh', hh.toFixed(0) + 'px'); pst.style.setProperty('--hl', hl.toFixed(0) + 'px');
-      HM = { hw, hh, hl, hit: { x: W / 2, y: H * .45 } };
+      const piv = { x: W * (mob ? .28 : .27), y: H * .97 }, Lh = hl + hh / 2, END = mob ? 30 : 58, ar = END * Math.PI / 180;
+      HM = { hw, hh, hl, piv, END, hit: { x: piv.x + Math.sin(ar) * Lh + Math.cos(ar) * hw * .45, y: piv.y - Math.cos(ar) * Lh + Math.sin(ar) * hw * .45 } };
       // the crack: a spider-web from the impact point
       const ns = 'http://www.w3.org/2000/svg';
       hmCrack.setAttribute('viewBox', `0 0 ${W} ${H}`); hmCrack.innerHTML = '';
@@ -1628,12 +1635,12 @@
       const mx = HM.m.x, my = HM.m.y, s0 = HM.m.s;
       // 0–.14 the words fade out · .14–.32 the hammer forms · .32–.52 wind up · .52–.6 swing · .6 impact · .74–1 the page falls
       const f1 = ease(clamp((t - .14) / .18)), f2 = ease(clamp((t - .32) / .2)), f3 = clamp((t - .52) / .08), f4 = clamp((t - .6) / .08), f5 = ease(clamp((t - .74) / .26));
-      const px = W / 2, py = H * .93;
-      const sc = lerp(s0, 1, f1) * (1 + .75 * f3 * f3) * (1 - .12 * f4);
-      const x = lerp(mx, px, f1), y = lerp(my + (hl + hh / 2) * s0, py, f1);
-      const rx = f3 > 0 ? lerp(62, -38, f3 * f3) + 10 * f4 : lerp(0, 62, f2);  // wind up (away), then swing at you
-      const rz = lerp(0, -10, f2) * (1 - f3);
-      hmRot.style.transform = `translate(${(x - hw / 2).toFixed(1)}px, ${(y - hh - hl).toFixed(1)}px) rotateX(${rx.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg) scale(${sc.toFixed(3)})`;
+      const { piv, END } = HM;
+      const sc = lerp(s0, 1, f1);
+      const x = lerp(mx, piv.x, f1), y = lerp(my + (hl + hh / 2) * s0, piv.y, f1);
+      // stands up (-18°) → pulled back to the left (-72°) → whips across to the right (END) and hits → small recoil
+      const ang = f3 > 0 ? lerp(-46, END, f3 * f3) - 7 * Math.sin(f4 * Math.PI) : lerp(0, -12, f1) + lerp(0, -34, f2);
+      hmRot.style.transform = `translate(${(x - hw / 2).toFixed(1)}px, ${(y - hh - hl).toFixed(1)}px) rotate(${ang.toFixed(2)}deg) scale(${sc.toFixed(3)})`;
       hmRot.style.opacity = (t < .14 ? 0 : 1 - clamp((t - .64) / .08)).toFixed(3);
       hmRot.style.setProperty('--hs', f1.toFixed(3)); hmRot.style.setProperty('--hb', clamp(f1 * 1.5).toFixed(3));
       pst.style.setProperty('--mo', t >= .14 ? '0' : '1');
@@ -1642,9 +1649,10 @@
       const c = clamp((t - .6) / .08);
       crackPaths.forEach(q => { q.p.style.strokeDashoffset = (1 - clamp((c - q.delay) / (1 - q.delay * .6))).toFixed(3); });
       hmFlash.style.opacity = (t >= .6 ? Math.max(0, 1 - (t - .6) / .07) : 0).toFixed(3);
+      hmFlash.style.setProperty('--fx', HM.hit.x.toFixed(0) + 'px'); hmFlash.style.setProperty('--fy', HM.hit.y.toFixed(0) + 'px');
       if (hmLast >= 0 && hmLast < .6 && t >= .6 && !reduce) {
         sound.play('impact');
-        pst.animate([{ transform: 'none' }, { transform: 'translate(-12px,7px)' }, { transform: 'translate(9px,-5px)' }, { transform: 'translate(-4px,2px)' }, { transform: 'none' }], { duration: 420, easing: 'ease-out' });
+        pst.animate([{ transform: 'none' }, { transform: 'translate(14px,-3px)' }, { transform: 'translate(-9px,4px)' }, { transform: 'translate(4px,-1px)' }, { transform: 'none' }], { duration: 420, easing: 'ease-out' });
         if (navigator.vibrate) try { navigator.vibrate(40); } catch (_) {}
       }
       // the cracked page falls away and the next page is underneath
@@ -1659,7 +1667,7 @@
       // 0–.45 the camera rises and looks straight down: the cards lie flat into a ring with a hole in the middle
       // .3–1   you dive down through the hole — I GET IT BETTER is waiting underneath
       if (t < 0) {
-        if (poLast !== -1) { ringWrap.style.transform = ringWrap.style.opacity = bHead.style.opacity = cLay.style.clipPath = cBeat.style.transform = ''; tiltX = -8; flatK = 0; ringKick(); poLast = -1; PO = null; }
+        if (poLast !== -1) { ringWrap.style.transform = ringWrap.style.opacity = bHead.style.opacity = cLay.style.opacity = cBeat.style.transform = ''; tiltX = -8; flatK = 0; ringKick(); poLast = -1; PO = null; }
         return;
       }
       if (!PO) {
@@ -1674,10 +1682,9 @@
       ringWrap.style.transform = `scale(${sc.toFixed(3)})`;
       ringWrap.style.opacity = (1 - clamp((t - .8) / .2)).toFixed(3);
       bHead.style.opacity = (1 - clamp(t / .25)).toFixed(3);
-      // the hole: the next page shows through it, then fills the screen as you fall in
-      const r = Math.min(PO.R, PO.hole * .92 * clamp((t - .3) / .14) * sc);
-      cLay.style.clipPath = `circle(${r.toFixed(1)}px at ${PO.x.toFixed(0)}px ${PO.y.toFixed(0)}px)`;
-      cBeat.style.transform = `scale(${(.55 + .45 * ease(clamp((t - .3) / .7))).toFixed(3)})`;
+      // the next page is down there: it rises out of the dark as you fall in (no circle)
+      cLay.style.opacity = ease(clamp((t - .4) / .45)).toFixed(3);
+      cBeat.style.transform = `scale(${(.45 + .55 * ease(clamp((t - .4) / .6))).toFixed(3)})`;
       poLast = t;
     }
 
@@ -1687,8 +1694,8 @@
     function slide(t) {
       if (t < 0) { if (slLast !== -1) { eLay.style.transform = fLay.style.transform = ''; slLast = -1; } return; }
       const e = ease(t);
-      eLay.style.transform = `translateX(${(e * 100).toFixed(2)}%)`;
-      fLay.style.transform = `translateX(${((e - 1) * 100).toFixed(2)}%)`;
+      eLay.style.transform = `translateX(${(-e * 100).toFixed(2)}%)`;
+      fLay.style.transform = `translateX(${((1 - e) * 100).toFixed(2)}%)`;
       slLast = t;
     }
 
@@ -1713,6 +1720,8 @@
       pst.style.setProperty('--ds', ds.toFixed(3));
       pst.style.setProperty('--ddy', (H / 2 - pad - mv - (dmh * ds - mv) / 2).toFixed(1) + 'px');
       pst.style.setProperty('--vsb', (mv + pad + 18).toFixed(0) + 'px');
+      const gut = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--gut')) || 24;
+      pst.style.setProperty('--dmx', (W < 760 ? 0 : -W / 2 + Math.max(gut, 40) + dm.offsetWidth * ds / 2).toFixed(1) + 'px');
       ringLayout(); lossLayout(); hmLayout();
       VP = null; vLast = -1; circO = null; PO = null;
     }
@@ -1817,7 +1826,7 @@
       const drop = clamp((rel + H) / H);                              // 0 as the section appears → 1 once it's pinned
       const z = ease(clamp(rel / INTRO));                              // overview → one project in focus
       const f = clamp((rel - INTRO) / L, 0, n - 1);                    // which project is in the middle (fractional)
-      stage.style.setProperty('--z', z.toFixed(3));
+      const zs = z.toFixed(3); if (zs !== stage._z) { stage._z = zs; stage.style.setProperty('--z', zs); }
       const R = W * (mob ? 1.2 : .7);
       const spread = mob ? 15 + 10 * z : 16 + 11 * z;
       slabs.forEach((s, i) => {
@@ -1885,12 +1894,12 @@
     const frame = now => {
       raf = 0;
       g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Hc);
-      const el = started ? now - t0 : 0, s = cell - 1, R = cell * 9;
+      const r = cv.getBoundingClientRect(), prog = reduce ? 1 : Math.max(0, Math.min(1, (innerHeight * .98 - r.top) / (innerHeight * .62)));
+      const s = cell - 1, R = cell * 9;
       let busy = false;
       for (const b of blocks) {
-        const k = reduce ? 1 : Math.min(1, Math.max(0, (el - b.dl) / 620));
-        if (k <= 0) { busy = true; continue; }
-        if (k < 1) busy = true;
+        const k = Math.min(1, Math.max(0, (prog - b.dl / 1530 * .62) / .38));   // each block falls in as you scroll
+        if (k <= 0) continue;
         const dist = Math.hypot(b.x + s / 2 - px, b.y + s / 2 - py);
         const want = dist < R ? (1 - dist / R) ** 1.5 * cell * 2.2 : 0;
         b.l += (want - b.l) * .22;
@@ -1912,13 +1921,95 @@
     cv.addEventListener('pointermove', at);
     cv.addEventListener('pointerdown', e => { at(e); if (e.pointerType !== 'mouse') setTimeout(() => { px = py = -1e4; kick(); }, 700); });
     cv.addEventListener('pointerleave', () => { px = py = -1e4; kick(); });
-    new IntersectionObserver(es => es.forEach(e => {
-      vis = e.isIntersecting;
-      if (vis && !started) { started = true; t0 = performance.now() + 150; }
-      if (vis) kick();
-    }), { threshold: .3 }).observe(cv);
+    new IntersectionObserver(es => es.forEach(e => { vis = e.isIntersecting; if (vis) { started = true; kick(); } }), { threshold: 0 }).observe(cv);
+    addEventListener('scroll', () => { if (vis) kick(); }, { passive: true });
     let rt = 0; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 150); });
     (document.fonts?.ready || Promise.resolve()).then(build);
+  })();
+
+  /* ---------- SMALL WINS: the photo opens out of a blue block as you scroll, the × turns ---------- */
+  (() => {
+    const main = $('.win-feat .wf-main'), x = $('.wf-en b');
+    if (!main) return;
+    let tk = false, last = -1;
+    const upd = () => {
+      tk = false;
+      const r = main.getBoundingClientRect(), vh = innerHeight;
+      if (r.top > vh * 1.2 || r.bottom < -vh * .2) return;
+      const k = reduce ? 1 : Math.max(0, Math.min(1, (vh * .95 - r.top) / (vh * .55)));
+      if (Math.abs(k - last) < .003) return;
+      last = k;
+      main.style.setProperty('--wr', k.toFixed(3));
+      if (x) x.style.transform = `rotate(${(k * 180).toFixed(1)}deg)`;
+    };
+    addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(upd); } }, { passive: true });
+    upd();
+  })();
+
+  /* ---------- GIVE: the blue block (the chance I grabbed) bursts into small blocks that are handed out,
+                  then they all fall — straight down into THE WORK, whose cards drop in next ---------- */
+  (() => {
+    const sec = $('.gv'), stage = $('.gv-stage'), cv = $('.gv-cv'), txt = $('.gv-txt');
+    if (!sec || !cv) return;
+    const g = cv.getContext('2d');
+    const h3 = $('h3', txt), words = [];
+    // light the heading up word by word
+    [...h3.childNodes].forEach(n => {
+      if (n.nodeType === 3) {
+        const f = document.createDocumentFragment();
+        n.textContent.split(/(\s+)/).forEach(w => { if (!w) return; if (/^\s+$/.test(w)) { f.appendChild(document.createTextNode(w)); return; } const sp = document.createElement('span'); sp.textContent = w; f.appendChild(sp); words.push(sp); });
+        n.replaceWith(f);
+      } else words.push(n);
+    });
+    let W = 0, H = 0, top = 0, P = [], tk = false, last = -2;
+    let seed = 3; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const layout = () => {
+      W = stage.clientWidth; H = stage.clientHeight;
+      sec.style.height = Math.round(H * 2.6) + 'px';
+      top = sec.getBoundingClientRect().top + scrollY;
+      cv.width = W; cv.height = H;                                     // 1× is plenty for squares
+      seed = 3; const n = W < 700 ? 60 : 110;
+      P = Array.from({ length: n }, (_, i) => {
+        const a = rnd() * Math.PI * 2, d = (.18 + rnd() * .62) * Math.hypot(W, H) * .5;
+        return { a, d, s: 5 + rnd() * 13, c: rnd() < .72 ? '#4da3ff' : rnd() < .5 ? '#f6f6f3' : '#2b78cc', dl: rnd() * .12, g: .6 + rnd() * .8, spin: (rnd() - .5) * 8 };
+      });
+      last = -2; draw();
+    };
+    const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+    const draw = () => {
+      tk = false;
+      const rel = scrollY - top, p = clamp(rel / (sec.offsetHeight - H || 1), -1, 1.4);
+      if (rel < -H || rel > sec.offsetHeight) return;
+      if (Math.abs(p - last) < .001) return;
+      last = p;
+      const pp = clamp(p);
+      // words
+      const wk = clamp(pp / .3) * (words.length + 1);
+      words.forEach((w, i) => (w.style.opacity = (.14 + .86 * clamp(wk - i)).toFixed(3)));
+      txt.style.transform = `translateY(${(-clamp((pp - .62) / .38) * H * .35).toFixed(1)}px)`;
+      txt.style.opacity = (1 - clamp((pp - .7) / .3)).toFixed(3);
+      // blocks
+      g.clearRect(0, 0, W, H);
+      const cx = W / 2, cy = H * .3;
+      const core = clamp(pp / .3), burst = clamp((pp - .3) / .32), fall = clamp((pp - .56) / .44);
+      if (burst < .02) {                                                 // the single blue block, growing a little
+        const s = 18 + 10 * core;
+        g.fillStyle = '#4da3ff'; g.globalAlpha = .25 * core; g.fillRect(cx - s, cy - s, s * 2, s * 2);
+        g.globalAlpha = 1; g.fillRect(cx - s / 2, cy - s / 2, s, s);
+        return;
+      }
+      for (const q of P) {
+        const b = clamp((burst - q.dl) / (1 - q.dl)), e = 1 - Math.pow(1 - b, 3);
+        const x = cx + Math.cos(q.a) * q.d * e, y = cy + Math.sin(q.a) * q.d * e * .75 + fall * fall * H * 1.25 * q.g;
+        if (y > H + 30) continue;
+        g.save(); g.translate(x, y); g.rotate(q.spin * (e + fall));
+        g.fillStyle = q.c; g.globalAlpha = .95; g.fillRect(-q.s / 2, -q.s / 2, q.s, q.s); g.restore();
+      }
+      g.globalAlpha = 1;
+    };
+    addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(draw); } }, { passive: true });
+    addEventListener('resize', layout); addEventListener('load', layout); document.fonts?.ready.then(layout);
+    layout();
   })();
 
   /* certificates button: a little digital rain behind the fanned certificates */

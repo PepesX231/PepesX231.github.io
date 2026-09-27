@@ -915,7 +915,7 @@ html.js .ly-e,html.js .ly-f{z-index:6}
 
 /* ---- D · FAIL FAST. LEARN FAST. → sinks to the bottom and becomes Most people / Me ---- */
 html.js .d-motto{position:absolute;left:50%;top:50%;width:max-content;max-width:94vw;text-align:center;transform:translate(-50%,-50%);transform-origin:50% 50%;transition:transform 1.1s cubic-bezier(.7,0,.2,1)}
-html.js .pst.d1 .d-motto{transform:translate(-50%,calc(-50% + var(--ddy,36vh))) scale(var(--ds,.3))}
+html.js .pst.d1 .d-motto{transform:translate(calc(-50% + var(--dmx,0px)),calc(-50% + var(--ddy,36vh))) scale(var(--ds,.3))}
 html.js .d-motto p{transition:opacity .5s ease}
 html.js .pst.d1 .d-motto p{opacity:0}
 html.js .d-vs{position:absolute;left:var(--gut);right:var(--gut);top:calc(var(--nav-h) + 8px);bottom:var(--vsb,30%);max-width:1000px;margin-inline:auto;display:flex;flex-direction:column;justify-content:center;padding:0;text-align:left;visibility:hidden}
@@ -1248,8 +1248,8 @@ html.has-cur .vx{cursor:none}
 .vx-hint{display:block;margin-top:10px;color:var(--mute-l)!important}
 
 /* ---------- STORY v4: ring → portal, slide to "grabbed" ---------- */
-html.js .ly-c{background:#111215}
-html.js .pst.bz .ly-c{opacity:1;visibility:visible;transition:none;z-index:4}
+html.js .pst.bz .ly-c{opacity:0;visibility:visible;transition:none;z-index:0}
+html.js .pst.bz .ly-b{z-index:2}
 html.js .pst.ef .ly-f{opacity:1;visibility:visible;transition:none}
 html.js .pst.bz .ring-wrap{transition:none}
 .ly-c .beat{transform-origin:50% 45%}
@@ -1279,3 +1279,32 @@ html.js .pst.bz .ring-wrap{transition:none}
 @media (max-width:900px){.cx-back{display:inline-block;left:auto;right:var(--gut);bottom:auto;top:calc(var(--nav-h) + 18px);font-size:10.5px}}
 html.js .pst.bz .ring-hint{opacity:0}
 @media (max-width:900px){.cx-hint{display:none}.cx-back{top:auto;right:auto;left:var(--gut);bottom:calc(72px + env(safe-area-inset-bottom,0px))}}
+
+/* =========================================================
+   v8 — SMALL WINS reveal · GIVE scene · seamless THE WORK · About+Contact as one sheet
+   ========================================================= */
+/* SMALL WINS: the photo opens out of a blue block (JS sets --wr from the scroll) */
+.win-feat .wf-main::after{display:none}
+.win-feat .wf-main{clip-path:inset(calc((1 - var(--wr,1)) * 42%) round calc(4px + (1 - var(--wr,1)) * 3px))}
+.win-feat .wf-main::before{content:"";position:absolute;inset:0;z-index:2;background:var(--blue);opacity:calc(1 - var(--wr,1) * 1.7);pointer-events:none}
+.js .win-feat:not(.go) .wf-main img,.win-feat.go .wf-main img{transform:scale(calc(1.25 - var(--wr,1) * .25))}
+.wf-en b{transition:none}
+/* GIVE */
+.gv{position:relative}
+.gv-stage{position:relative;height:100vh;height:100svh;overflow:hidden;display:grid;place-items:center}
+html.js .gv-stage{position:sticky;top:0}
+.gv-cv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.gv-txt{position:relative;z-index:2;max-width:min(92%,1100px);padding:0 var(--gut);text-align:center;margin-top:12vh;will-change:transform,opacity}
+.gv-txt h3{font-family:var(--body);font-weight:600;font-size:clamp(36px,5.6vw,92px);line-height:1.08}
+.gv-txt h3 em{font-style:normal;color:var(--blue)}
+.gv-txt h3 span,.gv-txt h3 em{transition:opacity .15s linear}
+.gv-txt p{margin:clamp(12px,1.6vw,22px) 0 0;color:var(--dim);font-weight:500;font-size:clamp(17px,1.8vw,26px)}
+.gv-txt p em{font-style:normal;color:var(--blue)}
+/* THE WORK: no hard edges — the stage fades into the page top and bottom, cards aren't clipped while they drop in */
+html.js .wk-stage{overflow:clip visible;overflow-x:clip;overflow-y:visible;
+  background:linear-gradient(180deg,#0b0b0b 0%,rgba(11,11,11,0) 18%,rgba(11,11,11,0) 80%,#0b0b0b 100%),radial-gradient(120% 90% at 50% 58%,color-mix(in srgb,var(--tint) 34%,#0b0b0b) 0%,#0b0b0b 62%)}
+.wk-glow{will-change:opacity}
+/* About + Contact: one continuous white sheet */
+#about.panel-wrap{padding-bottom:0}
+#contact.panel-wrap{padding-top:0}
+#contact .panel.contact{border-top:1px solid var(--line-l);padding-top:clamp(40px,6vw,88px)}
