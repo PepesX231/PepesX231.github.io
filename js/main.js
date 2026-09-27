@@ -2460,7 +2460,7 @@
         at(300, () => heroRoll(true));
         at(4500, afterRoll);
       };
-      const cleanup = () => { skip.remove(); mv.animate([{ opacity: getComputedStyle(mv).opacity }, { opacity: 0 }], { duration: 1300, easing: 'ease-in-out', fill: 'forwards' }).finished.then(() => mv.remove()); removeEventListener('wheel', finish); };
+      const cleanup = () => { skip.remove(); if (mv.classList.contains('black')) { mv.remove(); removeEventListener('wheel', finish); return; } mv.style.zIndex = -1; mv.animate([{ opacity: getComputedStyle(mv).opacity }, { opacity: 0 }], { duration: 1300, easing: 'ease-in-out', fill: 'forwards' }).finished.then(() => mv.remove()); removeEventListener('wheel', finish); };
       function finish() {
         if (ended) return; ended = true;
         timers.forEach(clearTimeout); anims.forEach(a => a.cancel());
