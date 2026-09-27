@@ -1462,3 +1462,34 @@ html.js .wk-stage{overflow:clip visible;overflow-x:clip;overflow-y:visible;
 
 /* perf: looping animations stop while their section is off screen */
 .off,.off *,.off *::before,.off *::after{animation-play-state:paused!important}
+
+/* =========================================================
+   INTRO — Marvel Comics style page flip → PEE logo box
+   ========================================================= */
+.mv{position:fixed;inset:0;z-index:50;background:#050506;overflow:hidden;perspective:1400px;pointer-events:none}
+.mv::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%,transparent 45%,rgba(0,0,0,.75));pointer-events:none}
+.mv-cam{position:absolute;inset:0;display:grid;place-items:center;transform-style:preserve-3d;transform:scale(2.3) rotateX(18deg)}
+.mv-book{--pw:min(38vw,64vh);position:relative;width:calc(var(--pw) * 2);height:calc(var(--pw) * 1.36);transform-style:preserve-3d}
+.mv-pg{position:absolute;top:0;width:50%;height:100%;background:#111 center/cover no-repeat;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.mv-pg::before{content:"";position:absolute;inset:0;background:radial-gradient(rgba(0,0,0,.4) 28%,transparent 31%) 0 0/5px 5px;mix-blend-mode:multiply;opacity:.55}   /* comic halftone */
+.mv-pg::after{content:"";position:absolute;inset:0;border:7px solid #f4f1e8;
+  background:linear-gradient(90deg,transparent calc(58% - 3px),#f4f1e8 calc(58% - 3px) calc(58% + 3px),transparent calc(58% + 3px)) 0 0/100% 42% no-repeat,
+             linear-gradient(transparent calc(42% - 3px),#f4f1e8 calc(42% - 3px) calc(42% + 3px),transparent calc(42% + 3px))}   /* panel gutters */
+.mv-left{left:0;box-shadow:inset -30px 0 40px -20px rgba(0,0,0,.8)}
+.mv-left::after{background:linear-gradient(90deg,transparent calc(38% - 3px),#f4f1e8 calc(38% - 3px) calc(38% + 3px),transparent calc(38% + 3px)) 0 58%/100% 100% no-repeat,
+             linear-gradient(transparent calc(62% - 3px),#f4f1e8 calc(62% - 3px) calc(62% + 3px),transparent calc(62% + 3px))}
+.mv-right{left:50%;box-shadow:inset 30px 0 40px -20px rgba(0,0,0,.7)}
+.mv-flip{position:absolute;left:50%;top:0;width:50%;height:100%;transform-origin:0 50%;transform-style:preserve-3d;will-change:transform}
+.mv-flip .mv-pg{left:0;width:100%}
+.mv-bk{transform:rotateY(180deg)}
+.mv-logo{position:absolute;left:50%;top:50%;z-index:3;transform:translate(-50%,-50%);opacity:0;overflow:hidden;background:#1f6fd0;padding:.02em .28em 0;
+  box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.mv-logo b{display:block;font-family:var(--display);font-weight:400;font-size:clamp(90px,17vw,250px);line-height:1.02;letter-spacing:-.01em;color:#fff}
+.mv-logo i{position:absolute;top:-20%;bottom:-20%;left:0;width:30%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);transform:translateX(-120%)}
+.mv.lg .mv-cam{filter:brightness(.35);transition:filter .5s}
+@media (max-width:700px){.mv-book{--pw:44vw}}
+
+.mv.lg .mv-cam{filter:none}
+.mv::before{content:"";position:absolute;inset:0;z-index:2;background:#050506;opacity:0;transition:opacity .45s ease;pointer-events:none}
+.mv.lg::before{opacity:.72}
+@media (max-width:700px){.mv-book{--pw:45vw;height:calc(var(--pw) * 1.62)}.mv-pg::after{border-width:5px}}
