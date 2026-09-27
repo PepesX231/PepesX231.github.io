@@ -8,6 +8,16 @@
 (() => {
   document.documentElement.classList.add('js');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // phones / weaker machines get a lighter version of every canvas effect (fewer pixels, fewer particles)
+  const LITE = matchMedia('(pointer: coarse)').matches && ((navigator.hardwareConcurrency || 8) <= 6 || (navigator.deviceMemory || 8) <= 4)
+    || (navigator.hardwareConcurrency || 8) <= 4;
+  const DPR = cap => Math.min(LITE ? 1 : cap, devicePixelRatio || 1);
+  if (LITE) document.documentElement.classList.add('lite');
+  // pause every looping CSS animation (bobbing cards, blinking dots…) in sections that are off screen
+  addEventListener('DOMContentLoaded', () => {
+    const io = new IntersectionObserver(es => es.forEach(e => e.target.classList.toggle('off', !e.isIntersecting)), { rootMargin: '120px 0px' });
+    document.querySelectorAll('body > section, body > footer, main > section, main > footer, .wk-after, .panel-wrap').forEach(el => io.observe(el));
+  });
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -311,7 +321,7 @@
     const C = { x: 0, y: 0, px: 0, py: 0 };       // the card's centre — just one more (heavier) point on the rope
     let D = 0, anchor = { x: 0, y: 0 }, dropped = false, visible = false, raf = 0;
     const size = () => {
-      const r = stage.getBoundingClientRect(); W = r.width; H = r.height; dpr = Math.min(2, devicePixelRatio || 1);
+      const r = stage.getBoundingClientRect(); W = r.width; H = r.height; dpr = DPR(1.5);
       cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
       cw = card.offsetWidth; ch = card.offsetHeight; D = ch / 2 + 6;
       const sr = spot.getBoundingClientRect(), pr = stage.getBoundingClientRect();
@@ -460,13 +470,13 @@
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'kc'; b.style.setProperty('--c', col);
       if (['#e8c21a', '#4da3ff', '#00a3ad'].includes(col)) b.classList.add('lt');
-      b.innerHTML = `<span class="kc-body"></span><span class="kc-top">${glyph(name)}<i>${name}</i></span>`;
+      b.innerHTML = `<span class="kc-wl"></span><span class="kc-wf"></span><span class="kc-body"></span><span class="kc-top">${glyph(name)}<i>${name}</i></span>`;
       b.setAttribute('aria-label', name);
       board.appendChild(b);
       return { b, name, d, col, r: Math.floor(i / 6), c: i % 6 };
     });
     const sp = document.createElement('button'); sp.type = 'button'; sp.className = 'kc kc-space lt'; sp.style.setProperty('--c', '#f1f1ec');
-    sp.innerHTML = '<span class="kc-body"></span><span class="kc-top"><i>FAIL FAST. LEARN FAST.</i></span>'; sp.setAttribute('aria-label', 'Fail fast. Learn fast.'); board.appendChild(sp);
+    sp.innerHTML = '<span class="kc-wl"></span><span class="kc-wf"></span><span class="kc-body"></span><span class="kc-top"><i>FAIL FAST. LEARN FAST.</i></span>'; sp.setAttribute('aria-label', 'Fail fast. Learn fast.'); board.appendChild(sp);
     keys.push({ b: sp, name: 'Fail fast.', d: 'ทุกทักษะบนคีย์บอร์ดนี้ ได้มาจากการลงมือทำ แพ้ แล้วเรียนรู้', col: '#4da3ff', r: 4, c: 2.5 });
     let cur = -1, user = false, auto = 0, vis = false;
     // RGB ripple: every key lights up in a ring spreading from the pressed one
@@ -1639,7 +1649,7 @@
     let grid = null, gLit = -1;
     const drawGrid = (e, ox, oy, W, Hh) => {
       if (!zc) return;
-      const dpr = Math.min(1.5, devicePixelRatio || 1);
+      const dpr = DPR(1.5);
       const cell = W < 700 ? 22 : 30, gap = W < 700 ? 5 : 7;
       const key = `${W}x${Hh}`;
       if (!grid || grid.key !== key) {
@@ -1696,10 +1706,10 @@
       // it lands near the middle of the screen, so the damage is right in your face
       const piv = { x: W * (mob ? .24 : .27), y: H * .97 }, Lh = hl + hh / 2, END = mob ? 12 : 32, WIND = mob ? -34 : -46, ar = END * Math.PI / 180;
       const hit = { x: piv.x + Math.sin(ar) * Lh + Math.cos(ar) * hw * .45, y: piv.y - Math.cos(ar) * Lh + Math.sin(ar) * hw * .45 };
-      const dpr = Math.min(mob ? 1.5 : 1.25, devicePixelRatio || 1);
+      const dpr = DPR(mob ? 1.5 : 1.25);
       hmCv.width = Math.round(W * dpr); hmCv.height = Math.round(H * dpr);
       let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-      const D = Math.hypot(W, H), cx = hit.x, cy = hit.y, n = mob ? 14 : 22;
+      const D = Math.hypot(W, H), cx = hit.x, cy = hit.y, n = LITE ? 11 : mob ? 14 : 22;
       // a spider-web: rays with a vertex on every ring
       const RK = [.028, .065, .115, .18, .27, .39, .54, .74].map(r => r * D);
       const rays = [];
@@ -2134,7 +2144,7 @@
         blocks.push({ key, x, y, l: p ? p.l : 0, dl: (x / W) * 900 + (y / Hc) * 250 + Math.random() * 380 });
       }
       blocks.sort((a, b) => a.y - b.y || b.x - a.x);                   // back to front
-      dpr = Math.min(2, devicePixelRatio || 1);
+      dpr = DPR(1.5);
       cv.width = W * dpr; cv.height = Hc * dpr; cv.style.height = Hc + 'px';
       kick();
     };
@@ -2194,7 +2204,7 @@
     const build = () => {
       N = innerWidth < 700 ? 10 : 12;
       cw = main.offsetWidth; ch = main.offsetHeight;
-      dpr = Math.min(1.5, devicePixelRatio || 1);
+      dpr = DPR(1.5);
       cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
       let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
       cells = [];
@@ -2323,7 +2333,7 @@
       P = [];
       const src = [GIVER, ...KS];
       src.forEach((b, bi) => {
-        const n = bi ? (W < 700 ? 12 : 24) : (W < 700 ? 26 : 48);
+        const n = (bi ? (W < 700 ? 12 : 24) : (W < 700 ? 26 : 48)) * (LITE ? .6 : 1) | 0;
         for (let i = 0; i < n; i++) P.push({ bi, ox: rnd(), oy: rnd(), a: rnd() * Math.PI * 2, d: (.12 + rnd() * .55) * Math.hypot(W, H) * .5, s: 4 + rnd() * (bi ? 8 : 12), c: bi ? (rnd() < .8 ? '#4da3ff' : '#2b78cc') : (rnd() < .6 ? '#f6f6f3' : '#4da3ff'), g: 1 + rnd() * .8, spin: (rnd() - .5) * 9, dl: rnd() * .15 });
       });
       last = -9; draw();

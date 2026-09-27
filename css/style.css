@@ -1446,3 +1446,19 @@ html.js .wk-stage{overflow:clip visible;overflow-x:clip;overflow-y:visible;
 }
 .kc-space{grid-column:2/6}
 @media (max-width:760px){.kb-stage{padding:44px 0 20px 8px}}
+
+/* perf: keycap walls = two flat faces (left + front) instead of 16 stacked shadows; each key is its own GPU layer,
+   so hover / press / ripple never repaint the board */
+.kc{will-change:transform}
+.kc::before{display:none}
+.kc-wl,.kc-wf{position:absolute;pointer-events:none}
+.kc-wl{left:calc(var(--h) * -1);top:0;width:var(--h);height:100%;background:color-mix(in srgb,var(--c) 30%,#000);transform-origin:0 0;transform:translateY(var(--h)) skewY(-45deg)}
+.kc-wf{left:0;top:100%;width:100%;height:var(--h);background:color-mix(in srgb,var(--c) 44%,#000);transform-origin:0 0;transform:skewX(-45deg)}
+.kc.down .kc-wl{width:calc(var(--h) * .3);left:calc(var(--h) * -.3);transform:translateY(calc(var(--h) * .3)) skewY(-45deg)}
+.kc.down .kc-wf{height:calc(var(--h) * .3)}
+.kc.down{transform:translate(calc(var(--h) * -.2),calc(var(--h) * .2))}
+.kb-ground{background:radial-gradient(closest-side,rgba(0,0,0,.8),rgba(0,0,0,.35) 60%,transparent)}
+@media (max-width:760px){.kb-board{--h:10px}}
+
+/* perf: looping animations stop while their section is off screen */
+.off,.off *,.off *::before,.off *::after{animation-play-state:paused!important}

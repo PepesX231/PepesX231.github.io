@@ -11,7 +11,7 @@ window.matrixRain = (cv, o = {}) => {
   const pick = () => glyphs[(Math.random() * glyphs.length) | 0];
   let W = 0, H = 0, cols = 0, drops = [], run = false, raf = 0, last = 0, dpr = 1;
   const size = () => {
-    dpr = Math.min(2, devicePixelRatio || 1);
+    dpr = Math.min(1.25, devicePixelRatio || 1);
     W = cv.clientWidth; H = cv.clientHeight;
     if (!W || !H) return;
     cv.width = W * dpr; cv.height = H * dpr;
