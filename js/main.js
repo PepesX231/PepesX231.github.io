@@ -454,24 +454,21 @@
       ['CSS', '#1572b6', 'ทำให้หน้าเว็บสวยและขยับได้'],
       ['JavaScript', '#e8c21a', 'ทำให้หน้าเว็บมีชีวิต — ทุกลูกเล่นในเว็บนี้']];
     const initials = w => w.split(/\s+/).map(x => x[0]).join('').slice(0, 2);
-    const board = $('.kb-board', kb), title = $('.kb-title', kb), desc = $('.kb-desc', kb), stage = $('.kb-stage', kb), kcase = $('.kb-case', kb);
-    const oled = $('.kb-oled', kb), knob = $('.kb-knob', kb), leds = $$('.kb-leds i', kb), nEl = $('.kb-n', kb);
+    const board = $('.kb-board', kb), title = $('.kb-title', kb), desc = $('.kb-desc', kb), stage = $('.kb-stage', kb);
     const glyph = name => (logos[name] ? `<svg viewBox="0 0 16 16" aria-hidden="true">${logos[name]}</svg>` : `<b>${initials(name)}</b>`);
     const keys = SK.map(([name, col, d], i) => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'kc'; b.style.setProperty('--c', col);
       if (['#e8c21a', '#4da3ff', '#00a3ad'].includes(col)) b.classList.add('lt');
-      b.innerHTML = `<span class="kc-top">${glyph(name)}<i>${name}</i></span>`;
+      b.innerHTML = `<span class="kc-body"></span><span class="kc-top">${glyph(name)}<i>${name}</i></span>`;
       b.setAttribute('aria-label', name);
       board.appendChild(b);
       return { b, name, d, col, r: Math.floor(i / 6), c: i % 6 };
     });
     const sp = document.createElement('button'); sp.type = 'button'; sp.className = 'kc kc-space lt'; sp.style.setProperty('--c', '#f1f1ec');
-    sp.innerHTML = '<span class="kc-top"><i>FAIL FAST. LEARN FAST.</i></span>'; sp.setAttribute('aria-label', 'Fail fast. Learn fast.'); board.appendChild(sp);
+    sp.innerHTML = '<span class="kc-body"></span><span class="kc-top"><i>FAIL FAST. LEARN FAST.</i></span>'; sp.setAttribute('aria-label', 'Fail fast. Learn fast.'); board.appendChild(sp);
     keys.push({ b: sp, name: 'Fail fast.', d: 'ทุกทักษะบนคีย์บอร์ดนี้ ได้มาจากการลงมือทำ แพ้ แล้วเรียนรู้', col: '#4da3ff', r: 4, c: 2.5 });
-    let cur = -1, user = false, auto = 0, vis = false, kr = 0;
-    const seen = new Set();
-    const setOled = txt => { oled.innerHTML = `<span>${txt}</span>`; oled.classList.toggle('scroll', txt.length > 12); };
+    let cur = -1, user = false, auto = 0, vis = false;
     // RGB ripple: every key lights up in a ring spreading from the pressed one
     const ripple = (k, col) => {
       kb.style.setProperty('--wc', col);
@@ -508,10 +505,6 @@
       kb.style.setProperty('--wc', k.col);
       title.textContent = k.name; desc.textContent = k.d;
       title.classList.remove('pop'); void title.offsetWidth; title.classList.add('pop');
-      setOled(k.b === sp ? 'FAIL FAST. LEARN FAST.' : k.name.toUpperCase());
-      kr = i * 15; knob.style.setProperty('--kr', kr + 'deg');
-      const L = leds[i % leds.length]; if (L) { L.classList.add('on'); setTimeout(() => L.classList.remove('on'), 380); }
-      if (how !== 'auto') { seen.add(i); nEl.textContent = seen.size; if (seen.size === keys.length) { setOled('ALL 24 · YOU KNOW ME NOW'); rainbow(); } }
       if (how !== 'auto') sound.play('clack');
     };
     // easter egg: type P-E-P-E-S (or press every key) → a rainbow wave over the whole board
@@ -528,11 +521,6 @@
       k.b.addEventListener('click', () => press(i, 'click'));
       if (fine) k.b.addEventListener('pointerenter', () => press(i, 'hover'));
     });
-    // the knob: click = next skill · scroll over it = turn it
-    const turn = d => press((cur + d + keys.length) % keys.length, 'click');
-    knob.addEventListener('click', () => turn(1));
-    knob.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); turn(1); } });
-    knob.addEventListener('wheel', e => { e.preventDefault(); turn(e.deltaY > 0 ? 1 : -1); }, { passive: false });
     new IntersectionObserver(es => es.forEach(e => {
       vis = e.isIntersecting;
       clearInterval(auto);
@@ -545,7 +533,7 @@
       if (e.code === 'Space') { e.preventDefault(); press(keys.length - 1, 'click'); return; }
       const ch = (e.key || '').toLowerCase(); if (ch.length !== 1) return;
       typed = (typed + ch).slice(-5);
-      if (typed === 'pepes') { setOled('HI! THANKS FOR TYPING MY NAME'); rainbow(); typed = ''; return; }
+      if (typed === 'pepes') { rainbow(); typed = ''; return; }
       const list = keys.map((k, i) => [k, i]).filter(([k]) => k.name.toLowerCase().startsWith(ch));
       if (!list.length) return;
       const nx = list.find(([, i]) => i > cur) || list[0];
