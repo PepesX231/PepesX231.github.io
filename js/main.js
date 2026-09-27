@@ -1485,22 +1485,25 @@
       c.append(f, k);
     });
     const STEP_A = 360 / rcs.length, AUTO = .16;
+    let tiltX = -8, flatK = 0;                // the camera angle / how flat the cards lie (the dive into the ring)
     let rot = 0, tgt = 0, RR = 280, ringOn = false, rRaf = 0, rdrag = null, lastTouch = 0;
     const ringLayout = () => {
       const cw = ring.offsetWidth || 200;
       RR = innerWidth < 700 ? cw * 1.45 : Math.min(cw * 1.55, Math.max(cw * 1.1, innerWidth / 2 - cw * .3));
-      rcs.forEach((c, i) => { c._a = i * STEP_A; c.style.transform = `rotateY(${c._a}deg) translateZ(${RR.toFixed(1)}px)`; });
+      rcs.forEach((c, i) => { c._a = i * STEP_A; c._f = -1; c.style.transform = `rotateY(${c._a}deg) translateZ(${RR.toFixed(1)}px)`; });
     };
     const ringFrame = now => {
       if (!rdrag) {
         if (!reduce && now > lastTouch) tgt -= AUTO;                  // keeps turning on its own
         rot += (tgt - rot) * .08;
       }
-      ring.style.transform = `translateZ(${(-RR).toFixed(1)}px) rotateX(-8deg) rotateY(${rot.toFixed(2)}deg)`;
+      ring.style.transform = `translateZ(${(-RR).toFixed(1)}px) rotateX(${tiltX.toFixed(2)}deg) rotateY(${rot.toFixed(2)}deg)`;
       rcs.forEach(c => {
         const z = Math.cos((c._a + rot) * Math.PI / 180);
-        c.style.opacity = (.12 + .88 * Math.pow(Math.max(0, (z + .35) / 1.35), 1.6)).toFixed(3);
-        c.style.pointerEvents = z > .5 ? '' : 'none';
+        if (flatK !== c._f) { c._f = flatK; c.style.transform = `rotateY(${c._a}deg) translateZ(${RR.toFixed(1)}px) rotateX(${(flatK * 90).toFixed(2)}deg)`; }
+        const o = .12 + .88 * Math.pow(Math.max(0, (z + .35) / 1.35), 1.6);
+        c.style.opacity = (o + (1 - o) * flatK).toFixed(3);
+        c.style.pointerEvents = z > .5 && !flatK ? '' : 'none';
       });
       rRaf = ringOn || rdrag || Math.abs(tgt - rot) > .05 ? requestAnimationFrame(ringFrame) : 0;
     };
@@ -1653,22 +1656,28 @@
     const cLay = lay('C'), bHead = $('.b-head', pst), cBeat = $('.beat', cLay);
     let PO = null, poLast = -1;
     function portal(t) {
+      // 0–.45 the camera rises and looks straight down: the cards lie flat into a ring with a hole in the middle
+      // .3–1   you dive down through the hole — I GET IT BETTER is waiting underneath
       if (t < 0) {
-        if (poLast !== -1) { ringWrap.style.transform = ringWrap.style.opacity = bHead.style.opacity = cLay.style.clipPath = cBeat.style.transform = ''; poLast = -1; PO = null; }
+        if (poLast !== -1) { ringWrap.style.transform = ringWrap.style.opacity = bHead.style.opacity = cLay.style.clipPath = cBeat.style.transform = ''; tiltX = -8; flatK = 0; ringKick(); poLast = -1; PO = null; }
         return;
       }
       if (!PO) {
-        const pr = pst.getBoundingClientRect(), rr = ring.getBoundingClientRect();
-        const x = rr.left + rr.width / 2 - pr.left, y = rr.top + rr.height / 2 - pr.top;
-        PO = { x, y, R: Math.hypot(Math.max(x, W - x), Math.max(y, H - y)) + 4 };
+        const pr = pst.getBoundingClientRect(), wr = ringWrap.getBoundingClientRect();
+        const x = wr.left + wr.width / 2 - pr.left, y = wr.top + wr.height / 2 - pr.top;
+        const cw = ring.offsetWidth || 200, f = 1200 / (1200 + RR);        // perspective shrink at the ring's depth
+        PO = { x, y, R: Math.hypot(Math.max(x, W - x), Math.max(y, H - y)) + 4, hole: Math.max(20, (RR - cw / 2) * f) };
       }
-      const e = ease(t);
-      ringWrap.style.transform = `scale(${(1 + e * 4.5).toFixed(3)})`;
-      ringWrap.style.opacity = (1 - clamp((t - .35) / .4)).toFixed(3);
-      bHead.style.opacity = (1 - clamp(t / .3)).toFixed(3);
-      const r = PO.R * clamp((t - .12) / .88) ** 1.6;
+      const up = ease(clamp(t / .45)), dive = clamp((t - .42) / .58), d = dive * dive * (3 - 2 * dive);
+      tiltX = -8 - 82 * up; flatK = up; ringKick();
+      const sc = 1 + d * d * 9;
+      ringWrap.style.transform = `scale(${sc.toFixed(3)})`;
+      ringWrap.style.opacity = (1 - clamp((t - .8) / .2)).toFixed(3);
+      bHead.style.opacity = (1 - clamp(t / .25)).toFixed(3);
+      // the hole: the next page shows through it, then fills the screen as you fall in
+      const r = Math.min(PO.R, PO.hole * .92 * clamp((t - .3) / .14) * sc);
       cLay.style.clipPath = `circle(${r.toFixed(1)}px at ${PO.x.toFixed(0)}px ${PO.y.toFixed(0)}px)`;
-      cBeat.style.transform = `scale(${(1.35 - .35 * e).toFixed(3)})`;
+      cBeat.style.transform = `scale(${(.55 + .45 * ease(clamp((t - .3) / .7))).toFixed(3)})`;
       poLast = t;
     }
 
