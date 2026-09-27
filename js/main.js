@@ -440,18 +440,92 @@
       let y = t.y * cx - z * sx; z = t.y * sx + z * cx;            // around X
       t.x = x; t.y = y; t.z = z;
     };
-    const frame = () => {
+    /* ---- a brain: the skills are neurons wired together; signals run along the wires and set off the next ones ---- */
+    const cv = document.createElement('canvas'); cv.className = 'sk-net'; cv.setAttribute('aria-hidden', 'true'); el.prepend(cv);
+    const g = cv.getContext('2d');
+    let seed = 21; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const nDots = innerWidth < 700 ? 34 : 64;
+    const dots = Array.from({ length: nDots }, () => {            // small neurons filling the head (inside the sphere)
+      const u = rnd() * 2 - 1, th = rnd() * Math.PI * 2, r = .35 + Math.cbrt(rnd()) * .7, q = Math.sqrt(1 - u * u);
+      return { x: Math.cos(th) * q * r, y: u * r, z: Math.sin(th) * q * r, dot: true, s: 1 + rnd() * 1.8 };
+    });
+    const nodes = [...tags, ...dots];
+    nodes.forEach(n => { n.heat = 0; n.nb = []; });
+    const edges = [];
+    nodes.forEach((n, i) => {                                      // wire each neuron to its nearest neighbours (distances never change as it spins)
+      const near = nodes.map((m, j) => [j, (m.x - n.x) ** 2 + (m.y - n.y) ** 2 + (m.z - n.z) ** 2]).filter(q => q[0] !== i).sort((p, q) => p[1] - q[1]).slice(0, n.dot ? 3 : 4);
+      near.forEach(([j]) => { if (edges.some(e => (e.a === i && e.b === j) || (e.a === j && e.b === i))) return; const e = { a: i, b: j, heat: 0, bend: (rnd() - .5) * .5 }; edges.push(e); n.nb.push(e); nodes[j].nb.push(e); });
+    });
+    let pulses = [], W = 0, H = 0, dpr = 1, lastT = 0, nextSpark = 0;
+    const size = () => { dpr = Math.min(2, devicePixelRatio || 1); W = el.clientWidth; H = el.clientHeight; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); };
+    const fire = (i, from = null, force = false) => {
+      const n = nodes[i]; n.heat = 1;
+      if (!n.dot && n.s) { n.s.classList.remove('fire'); void n.s.offsetWidth; n.s.classList.add('fire'); clearTimeout(n.ft); n.ft = setTimeout(() => n.s.classList.remove('fire'), 520); }
+      n.nb.forEach(e => {
+        if (e === from || pulses.length > 46) return;
+        if (!force && rnd() > .34) return;
+        pulses.push({ e, t: 0, fwd: e.a === i, v: 1.4 + rnd() * 1.2 });
+      });
+    };
+    const P = n => [W / 2 + n.x * R * 1.45, H / 2 + n.y * R];
+    const drawNet = dt => {
+      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+      // wires: curved like dendrites, fainter at the back, blue while a signal has just passed
+      g.lineCap = 'round';
+      for (const e of edges) {
+        const A = nodes[e.a], B = nodes[e.b], [x1, y1] = P(A), [x2, y2] = P(B);
+        const d = ((A.z + B.z) / 2 + 1) / 2;
+        const mx = (x1 + x2) / 2 + (y2 - y1) * e.bend, my = (y1 + y2) / 2 - (x2 - x1) * e.bend;
+        e.mx = mx; e.my = my;
+        g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo(mx, my, x2, y2);
+        if (e.heat > .02) { g.strokeStyle = `rgba(77,163,255,${(.25 + .6 * e.heat * d).toFixed(3)})`; g.lineWidth = 1 + 1.6 * e.heat; e.heat *= Math.pow(.2, dt); }
+        else { g.strokeStyle = `rgba(24,24,28,${(.05 + .2 * d).toFixed(3)})`; g.lineWidth = .8; }
+        g.stroke();
+      }
+      // the small neurons
+      for (const n of dots) {
+        const [x, y] = P(n), d = (n.z + 1) / 2, r = n.s * (.6 + .6 * d);
+        if (n.heat > .02) { g.fillStyle = `rgba(77,163,255,${(.18 * n.heat).toFixed(3)})`; g.beginPath(); g.arc(x, y, r + 9 * n.heat, 0, 7); g.fill(); n.heat *= Math.pow(.15, dt); }
+        g.fillStyle = n.heat > .1 ? '#2f86e8' : `rgba(24,24,28,${(.2 + .5 * d).toFixed(3)})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+      }
+      // signals: bright dots with a short tail
+      const next = [];
+      for (const p of pulses) {
+        p.t += p.v * dt;
+        const e = p.e, A = nodes[p.fwd ? e.a : e.b], B = nodes[p.fwd ? e.b : e.a], [x1, y1] = P(A), [x2, y2] = P(B);
+        e.heat = Math.max(e.heat, .8);
+        if (p.t >= 1) { fire(p.fwd ? e.b : e.a, e); continue; }
+        for (let k = 0; k < 4; k++) {
+          const t = Math.max(0, p.t - k * .05), u = 1 - t;
+          const x = u * u * x1 + 2 * u * t * e.mx + t * t * x2, y = u * u * y1 + 2 * u * t * e.my + t * t * y2;
+          g.fillStyle = k ? `rgba(77,163,255,${(.5 - k * .12).toFixed(2)})` : '#1f6fd0';
+          g.beginPath(); g.arc(x, y, k ? 3 - k * .5 : 3.2, 0, 7); g.fill();
+        }
+        next.push(p);
+      }
+      pulses = next;
+    };
+    const frame = now => {
+      now = now || performance.now();
+      const dt = Math.min(.05, lastT ? (now - lastT) / 1000 : .016); lastT = now;
       R = Math.min(el.clientWidth, el.clientHeight) * .42;
       if (!dragging) { ax += (.004 - ax) * .02; ay += (.007 - ay) * .02; }
+      nodes.forEach(t => rot(t, reduce ? 0 : ay, reduce ? 0 : ax));
       tags.forEach(t => {
-        rot(t, reduce ? 0 : ay, reduce ? 0 : ax);
         const k = (t.z + 1.6) / 2.6;
         t.s.style.transform = `translate(-50%,-50%) translate3d(${(t.x * R * 1.45).toFixed(1)}px,${(t.y * R).toFixed(1)}px,0) scale(${(.6 + .5 * k).toFixed(3)})`;
         t.s.style.opacity = (.25 + .75 * k).toFixed(3);
         const zi = Math.round(k * 20); if (zi !== t.zi) { t.zi = zi; t.s.style.zIndex = zi; }   // re-stack only when the order really changes
       });
+      if (!reduce && now > nextSpark && pulses.length < 12) { fire((rnd() * nodes.length) | 0, null, true); nextSpark = now + 700 + rnd() * 900; }
+      drawNet(dt);
       raf = vis || dragging ? requestAnimationFrame(frame) : 0;
+      if (!raf) lastT = 0;
     };
+    // point at a skill → it fires, and the signal spreads through the network
+    tags.forEach((t, i) => { t.s.addEventListener('pointerenter', () => fire(i, null, true)); });
+    el.addEventListener('pointerdown', e => { const s = e.target.closest?.('span'); const i = tags.findIndex(t => t.s === s); if (i >= 0) fire(i, null, true); });
+    addEventListener('resize', size); size();
     el.addEventListener('pointerdown', e => { dragging = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); el.classList.add('grab'); if (!raf) raf = requestAnimationFrame(frame); });
     el.addEventListener('pointermove', e => { if (!dragging) return; ay = (e.clientX - dragging.x) * .004; ax = -(e.clientY - dragging.y) * .004; dragging.x = e.clientX; dragging.y = e.clientY; });
     const end = () => { dragging = null; el.classList.remove('grab'); };

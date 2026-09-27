@@ -1370,3 +1370,10 @@ html.js .wk-stage{overflow:clip visible;overflow-x:clip;overflow-y:visible;
 .bd-info dd{margin:0;font-weight:700;font-size:13px;line-height:1.35}
 .bd-motto{font-size:clamp(25px,2.4vw,32px)}
 @media (max-width:520px){.bd-sub span:first-child{display:inline}.bd-sub span:last-child{display:none}.bd-sub{justify-content:flex-start}}
+
+/* skills: a 3D brain — neurons + wires on a canvas behind the tags */
+.sphere{height:clamp(380px,38vw,540px)}
+.sk-net{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.sphere span{transition:border-color .3s,box-shadow .3s,background-color .3s}
+.sphere span.fire{border-color:var(--blue);box-shadow:0 0 0 3px rgba(77,163,255,.25),0 0 18px rgba(77,163,255,.55)}
+.sphere span.hot.fire{background:#1f6fd0;border-color:#1f6fd0}
