@@ -454,54 +454,108 @@
       ['CSS', '#1572b6', 'ทำให้หน้าเว็บสวยและขยับได้'],
       ['JavaScript', '#e8c21a', 'ทำให้หน้าเว็บมีชีวิต — ทุกลูกเล่นในเว็บนี้']];
     const initials = w => w.split(/\s+/).map(x => x[0]).join('').slice(0, 2);
-    const board = $('.kb-board', kb), title = $('.kb-title', kb), desc = $('.kb-desc', kb);
+    const board = $('.kb-board', kb), title = $('.kb-title', kb), desc = $('.kb-desc', kb), stage = $('.kb-stage', kb), kcase = $('.kb-case', kb);
+    const oled = $('.kb-oled', kb), knob = $('.kb-knob', kb), leds = $$('.kb-leds i', kb), nEl = $('.kb-n', kb);
+    const glyph = name => (logos[name] ? `<svg viewBox="0 0 16 16" aria-hidden="true">${logos[name]}</svg>` : `<b>${initials(name)}</b>`);
     const keys = SK.map(([name, col, d], i) => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'kc'; b.style.setProperty('--c', col);
       if (['#e8c21a', '#4da3ff', '#00a3ad'].includes(col)) b.classList.add('lt');
-      b.innerHTML = `<span class="kc-top">${logos[name] ? `<svg viewBox="0 0 16 16" aria-hidden="true">${logos[name]}</svg>` : `<b>${initials(name)}</b>`}<i>${name}</i></span>`;
+      b.innerHTML = `<span class="kc-top">${glyph(name)}<i>${name}</i></span>`;
       b.setAttribute('aria-label', name);
       board.appendChild(b);
-      return { b, name, d };
+      return { b, name, d, col, r: Math.floor(i / 6), c: i % 6 };
     });
-    const sp = document.createElement('button'); sp.type = 'button'; sp.className = 'kc kc-space'; sp.style.setProperty('--c', '#f6f6f3'); sp.classList.add('lt');
-    sp.innerHTML = '<span class="kc-top"><i>FAIL FAST. LEARN FAST.</i></span>'; board.appendChild(sp);
-    keys.push({ b: sp, name: 'Fail fast.', d: 'ทุกทักษะบนคีย์บอร์ดนี้ ได้มาจากการลงมือทำ แพ้ แล้วเรียนรู้' });
-    let cur = -1, user = false, auto = 0;
-    const press = (i, fromUser) => {
+    const sp = document.createElement('button'); sp.type = 'button'; sp.className = 'kc kc-space lt'; sp.style.setProperty('--c', '#f1f1ec');
+    sp.innerHTML = '<span class="kc-top"><i>FAIL FAST. LEARN FAST.</i></span>'; sp.setAttribute('aria-label', 'Fail fast. Learn fast.'); board.appendChild(sp);
+    keys.push({ b: sp, name: 'Fail fast.', d: 'ทุกทักษะบนคีย์บอร์ดนี้ ได้มาจากการลงมือทำ แพ้ แล้วเรียนรู้', col: '#4da3ff', r: 4, c: 2.5 });
+    let cur = -1, user = false, auto = 0, vis = false, kr = 0;
+    const seen = new Set();
+    const setOled = txt => { oled.innerHTML = `<span>${txt}</span>`; oled.classList.toggle('scroll', txt.length > 12); };
+    // RGB ripple: every key lights up in a ring spreading from the pressed one
+    const ripple = (k, col) => {
+      kb.style.setProperty('--wc', col);
+      keys.forEach(o => {
+        const dd = Math.hypot(o.r - k.r, o.c - k.c);
+        o.b.style.setProperty('--dl', (dd * 55).toFixed(0) + 'ms');
+        o.b.classList.remove('wave'); void o.b.offsetWidth; o.b.classList.add('wave');
+      });
+    };
+    // the skill pops out of its key as a little hologram
+    const pop = k => {
+      if (reduce) return;
+      const r = k.b.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+      const el = document.createElement('div'); el.className = 'kb-pop'; el.style.setProperty('--c', k.col);
+      el.innerHTML = k.b === sp ? '<b>FAIL FAST.</b>' : `${glyph(k.name)}<span>${k.name}</span>`;
+      stage.appendChild(el);
+      const x = r.left + r.width / 2 - sr.left, y = r.top + r.height * .3 - sr.top;
+      el.animate([
+        { transform: `translate(${x}px,${y}px) translate(-50%,-50%) scale(.3)`, opacity: 0 },
+        { transform: `translate(${x}px,${y - 70}px) translate(-50%,-100%) scale(1.04)`, opacity: 1, offset: .3 },
+        { transform: `translate(${x}px,${y - 90}px) translate(-50%,-100%) scale(1)`, opacity: 1, offset: .75 },
+        { transform: `translate(${x}px,${y - 120}px) translate(-50%,-100%) scale(.96)`, opacity: 0 }
+      ], { duration: 1150, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => el.remove();
+    };
+    const press = (i, how) => {                       // how: 'click' (full show) · 'hover' (quick) · 'auto' (demo)
       const k = keys[i]; if (!k) return;
-      if (fromUser) { user = true; clearInterval(auto); }
+      if (how !== 'auto') { user = true; clearInterval(auto); }
       k.b.classList.remove('down'); void k.b.offsetWidth; k.b.classList.add('down');
-      clearTimeout(k.t); k.t = setTimeout(() => k.b.classList.remove('down'), 190);
+      clearTimeout(k.t); k.t = setTimeout(() => k.b.classList.remove('down'), 160);
+      if (how !== 'hover') { ripple(k, k.col); pop(k); }
+      if (i === cur) return;
       if (cur >= 0) keys[cur].b.classList.remove('on');
       cur = i; k.b.classList.add('on');
+      kb.style.setProperty('--wc', k.col);
       title.textContent = k.name; desc.textContent = k.d;
       title.classList.remove('pop'); void title.offsetWidth; title.classList.add('pop');
-      if (fromUser) sound.play('clack');
+      setOled(k.b === sp ? 'FAIL FAST. LEARN FAST.' : k.name.toUpperCase());
+      kr = i * 15; knob.style.setProperty('--kr', kr + 'deg');
+      const L = leds[i % leds.length]; if (L) { L.classList.add('on'); setTimeout(() => L.classList.remove('on'), 380); }
+      if (how !== 'auto') { seen.add(i); nEl.textContent = seen.size; if (seen.size === keys.length) { setOled('ALL 24 · YOU KNOW ME NOW'); rainbow(); } }
+      if (how !== 'auto') sound.play('clack');
     };
-    keys.forEach((k, i) => { k.b.addEventListener('click', () => press(i, true)); if (fine) k.b.addEventListener('pointerenter', () => press(i, true)); });
-    // your real keyboard: a letter jumps to the first skill that starts with it (space = the motto)
-    let vis = false;
+    // easter egg: type P-E-P-E-S (or press every key) → a rainbow wave over the whole board
+    const rainbow = () => {
+      keys.forEach(o => {
+        o.b.style.setProperty('--dl', ((o.r + o.c) * 70).toFixed(0) + 'ms');
+        o.b.style.setProperty('--wc', `hsl(${((o.r + o.c) * 32) % 360} 90% 60%)`);
+        o.b.classList.remove('wave'); void o.b.offsetWidth; o.b.classList.add('wave');
+        setTimeout(() => o.b.style.removeProperty('--wc'), 1400);
+      });
+      sound.play('pop');
+    };
+    keys.forEach((k, i) => {
+      k.b.addEventListener('click', () => press(i, 'click'));
+      if (fine) k.b.addEventListener('pointerenter', () => press(i, 'hover'));
+    });
+    // the knob: click = next skill · scroll over it = turn it
+    const turn = d => press((cur + d + keys.length) % keys.length, 'click');
+    knob.addEventListener('click', () => turn(1));
+    knob.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); turn(1); } });
+    knob.addEventListener('wheel', e => { e.preventDefault(); turn(e.deltaY > 0 ? 1 : -1); }, { passive: false });
     new IntersectionObserver(es => es.forEach(e => {
       vis = e.isIntersecting;
       clearInterval(auto);
-      if (vis && !user && !reduce) auto = setInterval(() => press((Math.random() * (keys.length - 1)) | 0, false), 2200);
+      if (vis && !user && !reduce) auto = setInterval(() => press((Math.random() * (keys.length - 1)) | 0, 'auto'), 2300);
     }), { threshold: .3 }).observe(kb);
+    // your real keyboard: a letter jumps to a skill that starts with it · space = the motto · type "pepes" for a surprise
+    let typed = '';
     addEventListener('keydown', e => {
       if (!vis || e.metaKey || e.ctrlKey || e.altKey || /input|textarea/i.test(e.target.tagName)) return;
-      if (e.code === 'Space') { e.preventDefault(); press(keys.length - 1, true); return; }
+      if (e.code === 'Space') { e.preventDefault(); press(keys.length - 1, 'click'); return; }
       const ch = (e.key || '').toLowerCase(); if (ch.length !== 1) return;
+      typed = (typed + ch).slice(-5);
+      if (typed === 'pepes') { setOled('HI! THANKS FOR TYPING MY NAME'); rainbow(); typed = ''; return; }
       const list = keys.map((k, i) => [k, i]).filter(([k]) => k.name.toLowerCase().startsWith(ch));
       if (!list.length) return;
       const nx = list.find(([, i]) => i > cur) || list[0];
-      press(nx[1], true);
+      press(nx[1], 'click');
     });
-    press(0, false);
+    press(0, 'auto');
     // the board leans toward the mouse a little
     if (fine && !reduce) {
-      const st = $('.kb-stage', kb);
-      st.addEventListener('pointermove', e => { const r = st.getBoundingClientRect(); st.style.setProperty('--mx', ((e.clientX - r.left) / r.width - .5).toFixed(3)); st.style.setProperty('--my', ((e.clientY - r.top) / r.height - .5).toFixed(3)); });
-      st.addEventListener('pointerleave', () => { st.style.setProperty('--mx', 0); st.style.setProperty('--my', 0); });
+      stage.addEventListener('pointermove', e => { const r = stage.getBoundingClientRect(); stage.style.setProperty('--mx', ((e.clientX - r.left) / r.width - .5).toFixed(3)); stage.style.setProperty('--my', ((e.clientY - r.top) / r.height - .5).toFixed(3)); });
+      stage.addEventListener('pointerleave', () => { stage.style.setProperty('--mx', 0); stage.style.setProperty('--my', 0); });
     }
   })();
 

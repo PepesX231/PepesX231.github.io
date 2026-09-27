@@ -1379,55 +1379,90 @@ html.js .wk-stage{overflow:clip visible;overflow-x:clip;overflow-y:visible;
 .sphere span.hot.fire{background:#1f6fd0;border-color:#1f6fd0}
 
 /* =========================================================
-   SKILLS — a 3D keyboard (black · white · blue, keys in each tool's own colour)
+   SKILLS — a custom mechanical keyboard in 3D: sculpted keycaps in each tool's colour,
+   an OLED strip + knob, RGB ripples, and the pressed skill pops up as a hologram
    ========================================================= */
-.kb{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);align-items:center;gap:clamp(16px,3vw,40px);
-  margin:14px 0 28px;padding:clamp(22px,3.5vw,48px);border-radius:22px;background:radial-gradient(120% 90% at 70% 40%,#18191d,#0b0b0c 70%);color:var(--paper);overflow:hidden}
-.kb-info{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0}
+.kb{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,.78fr) minmax(0,1.22fr);align-items:center;gap:clamp(16px,3vw,40px);
+  margin:14px 0 28px;padding:clamp(22px,3.5vw,48px);border-radius:22px;background:radial-gradient(110% 90% at 72% 45%,#1a1c22,#0b0b0c 68%);color:var(--paper);overflow:hidden;position:relative}
+.kb::before{content:"";position:absolute;right:8%;top:50%;width:46%;aspect-ratio:1;transform:translateY(-50%);border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--wc,#4da3ff) 30%,transparent),transparent);opacity:.8;transition:background .6s;pointer-events:none}
+.kb-info{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0;z-index:1}
 .kb-head{font-family:var(--display);font-size:clamp(46px,6vw,88px);line-height:.9;letter-spacing:.01em;color:transparent;-webkit-text-stroke:1.5px #f6f6f3}
 .kb-hint{color:#8a8a90;font-size:12px}
-.kb-title{margin-top:clamp(10px,2vw,26px);font-family:var(--display);font-weight:400;font-size:clamp(34px,4.4vw,64px);line-height:.95;color:var(--blue);word-break:break-word}
-.kb-title.pop{animation:kbpop .35s cubic-bezier(.3,1.5,.5,1)}
-@keyframes kbpop{from{transform:translateY(10px) rotate(-3deg);opacity:.2}to{transform:none;opacity:1}}
+.kb-title{margin-top:clamp(10px,2vw,26px);font-family:var(--display);font-weight:400;font-size:clamp(34px,4.4vw,64px);line-height:.95;color:var(--wc,var(--blue));word-break:break-word;transition:color .3s}
+.kb-title.pop{animation:kbpop .4s cubic-bezier(.3,1.5,.5,1)}
+@keyframes kbpop{from{transform:translateY(12px) rotate(-3deg);opacity:.15}to{transform:none;opacity:1}}
 .kb-desc{margin:0;color:#c9c9cd;font-size:clamp(15px,1.3vw,18px);line-height:1.6;max-width:26em;min-height:3.2em}
-.kb-stage{--mx:0;--my:0;perspective:1400px;display:grid;place-items:center;min-height:clamp(300px,34vw,470px)}
-.kb-board{--k:clamp(50px,5.4vw,78px);--g:calc(var(--k) * .14);display:grid;grid-template-columns:repeat(6,var(--k));gap:var(--g);padding:calc(var(--k) * .3);border-radius:18px;
-  background:linear-gradient(145deg,#2a2b30,#141518);
-  box-shadow:-2px 2px 0 #0d0d0f,-4px 4px 0 #0d0d0f,-6px 6px 0 #0d0d0f,-8px 8px 0 #0d0d0f,-10px 10px 0 #0a0a0b,-14px 14px 40px rgba(0,0,0,.6);
-  transform:rotateX(calc(52deg - var(--my) * 8deg)) rotateZ(calc(-32deg + var(--mx) * 8deg));transform-style:flat;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
-.kc{--c:#333;--d:9px;position:relative;width:var(--k);height:var(--k);padding:0;border:0;border-radius:12px;cursor:pointer;background:transparent;font:inherit;outline:none;
-  -webkit-tap-highlight-color:transparent}
-/* the key's body (its side walls) — stacked shadows toward the viewer read as depth on the tilted board */
-.kc::before{content:"";position:absolute;inset:0;border-radius:12px;background:color-mix(in srgb,var(--c) 55%,#000);
-  box-shadow:-1px 1px 0 color-mix(in srgb,var(--c) 45%,#000),-2px 2px 0 color-mix(in srgb,var(--c) 45%,#000),-3px 3px 0 color-mix(in srgb,var(--c) 42%,#000),-4px 4px 0 color-mix(in srgb,var(--c) 40%,#000),-5px 5px 0 color-mix(in srgb,var(--c) 38%,#000),-6px 6px 0 color-mix(in srgb,var(--c) 36%,#000),-8px 8px 10px rgba(0,0,0,.45)}
-.kc-top{position:absolute;inset:0;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
-  background:linear-gradient(150deg,color-mix(in srgb,var(--c) 80%,#fff) 0%,var(--c) 45%,color-mix(in srgb,var(--c) 85%,#000) 100%);
-  box-shadow:inset 0 2px 0 rgba(255,255,255,.28),inset 0 -3px 6px rgba(0,0,0,.25);color:#fff;
-  transform:translate(7px,-7px);transition:transform .12s ease,filter .2s}
+.kb-count{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:#6d6d74}
+.kb-count b{color:var(--paper);font-weight:400}
+
+.kb-stage{--mx:0;--my:0;position:relative;perspective:1500px;display:grid;place-items:center;min-height:clamp(320px,36vw,500px);z-index:1}
+.kb-case{--k:clamp(50px,5.2vw,76px);--g:calc(var(--k) * .12);position:relative;padding:calc(var(--k) * .22);border-radius:22px;
+  background:linear-gradient(150deg,#3a3c43 0%,#24262b 35%,#17181c 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -2px 0 rgba(0,0,0,.5),
+    -2px 2px 0 #121316,-4px 4px 0 #111214,-6px 6px 0 #0f1012,-8px 8px 0 #0e0f11,-10px 10px 0 #0c0d0f,-12px 12px 0 #0b0b0d,-26px 30px 50px rgba(0,0,0,.65);
+  transform:rotateX(calc(50deg - var(--my) * 8deg)) rotateZ(calc(-30deg + var(--mx) * 8deg));transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+/* top strip: name plate · OLED · knob */
+.kb-bar{display:flex;align-items:center;gap:calc(var(--k) * .18);margin:0 0 calc(var(--k) * .2);height:calc(var(--k) * .62)}
+.kb-plate{font-family:var(--display);font-size:calc(var(--k) * .3);letter-spacing:.06em;color:#9a9ca4;padding:0 calc(var(--k) * .12);text-shadow:0 1px 0 rgba(255,255,255,.08),0 -1px 0 rgba(0,0,0,.6)}
+.kb-leds{display:flex;gap:6px}
+.kb-leds i{width:6px;height:6px;border-radius:50%;background:#2a2c31;box-shadow:inset 0 1px 1px rgba(0,0,0,.6);transition:background .15s,box-shadow .15s}
+.kb-leds i.on{background:var(--wc,#4da3ff);box-shadow:0 0 8px var(--wc,#4da3ff)}
+.kb-oled{flex:1;height:100%;border-radius:8px;background:#050607;box-shadow:inset 0 2px 5px rgba(0,0,0,.9),0 1px 0 rgba(255,255,255,.08);display:flex;align-items:center;overflow:hidden;padding:0 10px;
+  font-family:var(--mono);font-size:calc(var(--k) * .17);letter-spacing:.12em;color:#7cc0ff;text-shadow:0 0 6px rgba(77,163,255,.8);white-space:nowrap}
+.kb-oled span{display:inline-block}
+.kb-oled.scroll span{animation:oled 4s linear infinite}
+@keyframes oled{from{transform:translateX(100%)}to{transform:translateX(-100%)}}
+.kb-knob{--kr:0deg;flex:none;width:calc(var(--k) * .62);height:calc(var(--k) * .62);border-radius:50%;cursor:pointer;position:relative;
+  background:conic-gradient(from var(--kr),#61646d,#2a2c31 12%,#50535b 25%,#2a2c31 37%,#61646d 50%,#2a2c31 62%,#50535b 75%,#2a2c31 87%,#61646d);
+  box-shadow:-1px 1px 0 #16171a,-2px 2px 0 #131417,-3px 3px 0 #111214,-4px 4px 0 #0f1012,-7px 7px 10px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25);transition:--kr .35s cubic-bezier(.3,1.4,.5,1)}
+.kb-knob::after{content:"";position:absolute;inset:22%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#6a6d76,#2b2d33 70%);box-shadow:inset 0 -1px 2px rgba(0,0,0,.6)}
+.kb-knob::before{content:"";position:absolute;left:50%;top:9%;width:3px;height:22%;margin-left:-1.5px;border-radius:2px;background:var(--wc,#4da3ff);box-shadow:0 0 6px var(--wc,#4da3ff);transform-origin:50% 185%;transform:rotate(var(--kr));z-index:1}
+@property --kr{syntax:'<angle>';inherits:true;initial-value:0deg}
+/* the key plate (recessed) */
+.kb-board{display:grid;grid-template-columns:repeat(6,var(--k));gap:var(--g);padding:calc(var(--k) * .14);border-radius:14px;background:#0d0e10;
+  box-shadow:inset 0 3px 8px rgba(0,0,0,.85),inset 0 -1px 0 rgba(255,255,255,.06)}
+/* a sculpted keycap: the skirt (side walls) + a smaller dished top, lit from the top-right */
+.kc{--c:#333;position:relative;z-index:0;width:var(--k);height:var(--k);padding:0;border:0;border-radius:11px;cursor:pointer;background:transparent;font:inherit;outline:none;
+  -webkit-tap-highlight-color:transparent;transform:translate(3px,-3px);transition:transform .09s ease}
+.kc::before{content:"";position:absolute;inset:0;border-radius:11px;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--c) 92%,#fff) 0%,color-mix(in srgb,var(--c) 70%,#000) 55%,color-mix(in srgb,var(--c) 45%,#000) 100%);
+  box-shadow:-1px 1px 0 color-mix(in srgb,var(--c) 42%,#000),-2px 2px 0 color-mix(in srgb,var(--c) 40%,#000),-3px 3px 0 color-mix(in srgb,var(--c) 37%,#000),-4px 4px 0 color-mix(in srgb,var(--c) 34%,#000),-5px 5px 0 color-mix(in srgb,var(--c) 30%,#000),-9px 9px 12px rgba(0,0,0,.55);
+  transition:box-shadow .09s ease}
+.kc::after{content:"";position:absolute;inset:-35%;z-index:-1;border-radius:50%;background:radial-gradient(closest-side,var(--wc,#4da3ff),transparent 75%);opacity:0;pointer-events:none}
+.kc-top{position:absolute;top:5%;right:5%;bottom:17%;left:17%;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  background:radial-gradient(140% 140% at 72% 18%,color-mix(in srgb,var(--c) 70%,#fff) 0%,var(--c) 42%,color-mix(in srgb,var(--c) 82%,#000) 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.38),inset -1px -2px 4px rgba(0,0,0,.28),inset 2px 3px 6px rgba(255,255,255,.08);color:#fff;transition:filter .2s}
 .kc.lt .kc-top{color:#111}
-.kc-top svg{width:42%;height:42%;filter:drop-shadow(0 1px 0 rgba(0,0,0,.25))}
-.kc-top b{font-family:var(--display);font-weight:400;font-size:calc(var(--k) * .34);line-height:1}
-.kc-top i{font-style:normal;font-family:var(--mono);font-size:calc(var(--k) * .105);letter-spacing:.04em;text-transform:uppercase;line-height:1.1;max-width:90%;text-align:center;opacity:.9}
-.kc:hover .kc-top{transform:translate(5px,-5px)}
-.kc.down .kc-top{transform:translate(1px,-1px);transition-duration:.05s}
-.kc.on .kc-top{filter:brightness(1.12);box-shadow:inset 0 2px 0 rgba(255,255,255,.35),inset 0 -3px 6px rgba(0,0,0,.25),0 0 0 2px #fff,0 0 22px color-mix(in srgb,var(--c) 70%,#4da3ff)}
+.kc-top svg{width:46%;height:46%;filter:drop-shadow(0 1px 0 rgba(0,0,0,.28))}
+.kc-top b{font-family:var(--display);font-weight:400;font-size:calc(var(--k) * .3);line-height:1;text-shadow:0 1px 0 rgba(0,0,0,.2)}
+.kc-top i{font-style:normal;font-family:var(--mono);font-size:calc(var(--k) * .095);letter-spacing:.03em;text-transform:uppercase;line-height:1.1;max-width:94%;text-align:center;opacity:.85}
+.kc:hover{transform:translate(4px,-4px)}
+.kc:hover .kc-top{filter:brightness(1.1)}
+.kc.down{transform:translate(-1px,1px);transition-duration:.04s}
+.kc.down::before{box-shadow:-1px 1px 0 color-mix(in srgb,var(--c) 40%,#000),-3px 3px 5px rgba(0,0,0,.5);transition-duration:.04s}
+.kc.on .kc-top{box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset -1px -2px 4px rgba(0,0,0,.28),0 0 0 2px rgba(255,255,255,.9),0 0 18px color-mix(in srgb,var(--c) 60%,#4da3ff)}
 .kc:focus-visible .kc-top{box-shadow:0 0 0 3px var(--blue)}
+.kc.wave::after{animation:kbglow .75s ease-out var(--dl,0s) both}
+.kc.wave .kc-top{animation:kbbump .5s cubic-bezier(.3,1.6,.5,1) var(--dl,0s) both}
+@keyframes kbglow{0%{opacity:0}25%{opacity:.85}100%{opacity:0}}
+@keyframes kbbump{0%{transform:none}35%{transform:translate(1px,-4px)}100%{transform:none}}
 .kc-space{grid-column:1/-1;width:auto}
-.kc-space .kc-top i{font-family:var(--display);font-size:calc(var(--k) * .26);letter-spacing:.02em;opacity:1}
+.kc-space .kc-top{left:4%;right:2%}
+.kc-space .kc-top i{font-family:var(--display);font-size:calc(var(--k) * .24);letter-spacing:.03em;opacity:1}
+/* the hologram that pops out of a pressed key */
+.kb-pop{position:absolute;left:0;top:0;z-index:5;pointer-events:none;display:flex;align-items:center;gap:10px;padding:10px 16px 10px 12px;border-radius:14px;white-space:nowrap;
+  background:rgba(12,14,18,.82);border:1px solid color-mix(in srgb,var(--c) 70%,#fff);box-shadow:0 0 24px color-mix(in srgb,var(--c) 55%,transparent),inset 0 0 18px color-mix(in srgb,var(--c) 25%,transparent);
+  color:#fff;font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase}
+.kb-pop svg{width:28px;height:28px}
+.kb-pop b{font-family:var(--display);font-weight:400;font-size:24px;letter-spacing:0}
+.kb-pop::after{content:"";position:absolute;left:50%;top:100%;width:2px;height:46px;margin-left:-1px;background:linear-gradient(color-mix(in srgb,var(--c) 80%,#fff),transparent)}
 @media (max-width:760px){
-  .kb{grid-template-columns:1fr;padding:22px 16px 10px}
-  .kb-board{--k:clamp(38px,11.4vw,54px);transform:rotateX(46deg) rotateZ(-28deg)}
-  .kb-stage{min-height:0;margin:-30px -10px -40px}
+  .kb{grid-template-columns:minmax(0,1fr);padding:22px 16px 6px;margin-inline:-6px}
+  .kb-stage{min-height:0;margin:-16px 0 -8px;padding-left:12px}
+  .kb-case{--k:clamp(30px,8.4vw,46px);border-radius:16px;transform:rotateX(44deg) rotateZ(-22deg)}
+  .kc,.kc::before{border-radius:8px}.kc-top{border-radius:6px}
   .kc-top i{display:none}
   .kc-space .kc-top i{display:block}
-}
-@media (max-width:760px){
-  .kb{grid-template-columns:minmax(0,1fr);margin-inline:-6px}
-  .kb-board{--k:clamp(32px,9vw,50px);border-radius:14px}
-  .kc,.kc::before,.kc-top{border-radius:9px}
-  .kb-stage{margin:-40px -8px -50px}
-}
-@media (max-width:760px){
-  .kb-stage{margin:-24px 0 -18px;padding-left:14px}
-  .kb-board{transform:rotateX(44deg) rotateZ(-22deg)}
+  .kb-leds{display:none}
+  .kb-pop{font-size:11px;padding:7px 11px 7px 9px}.kb-pop svg{width:20px;height:20px}.kb-pop b{font-size:18px}
 }
