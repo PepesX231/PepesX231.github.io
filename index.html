@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="th" style="background:#0b0b0b">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PEEPEE — Fail fast. Learn fast.</title>
+  <meta name="description" content="พอร์ตโฟลิโอของ PEEPEE — คนที่แพ้มาตลอด และเรียนรู้จากทุกครั้งที่แพ้">
+  <meta name="theme-color" content="#0b0b0b">
+  <meta property="og:title" content="PEEPEE — Fail fast. Learn fast.">
+  <meta property="og:description" content="พอร์ตโฟลิโอของ PEEPEE">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+  <script>document.documentElement.classList.add('js');try{if(!sessionStorage.getItem('pp-intro')&&(!location.hash||location.hash=='#home'))document.documentElement.classList.add('intro-on','bg-wait')}catch(e){document.documentElement.classList.add('intro-on','bg-wait')}</script>
+</head>
+<body>
+<a class="skip" href="#main">ข้ามไปเนื้อหา</a>
+
+<!-- ============ NAV ============ -->
+<header class="nav" id="nav">
+  <a class="logo" href="#home" aria-label="Pepes — กลับหน้าแรก">Pepes</a>
+  <nav class="links" id="links" aria-label="เมนู">
+    <a href="#home">HOME</a>
+    <a href="#story">STORY</a>
+    <a href="#wins">WINS</a>
+    <a href="#work">WORK</a>
+    <a href="#about">ABOUT</a>
+    <a href="#contact">CONTACT</a>
+    <a href="certificates.html">CERTS</a>
+  </nav>
+  <a class="pill" href="#contact">LET'S TALK ↗</a>
+  <button class="menu" id="menuBtn" type="button" aria-expanded="false" aria-controls="links">MENU</button>
+</header>
+
+<div id="page">
+<main id="main">
+
+  <!-- ============ 01 HOME ============ -->
+  <section class="hero wrap" id="home" data-tunnel='["assets/intro-pick/01.jpg", "assets/intro-pick/02.jpg", "assets/intro-pick/03.jpg", "assets/intro-pick/04.jpg", "assets/intro-pick/05.jpg", "assets/intro-pick/06.jpg", "assets/intro-pick/07.jpg", "assets/intro-pick/08.jpg", "assets/intro-pick/09.jpg", "assets/intro-pick/10.jpg", "assets/intro-pick/11.jpg", "assets/intro-pick/12.jpg", "assets/intro-pick/13.jpg", "assets/intro-pick/14.jpg", "assets/intro-pick/15.jpg", "assets/intro-pick/16.jpg", "assets/intro-pick/17.jpg", "assets/intro-pick/18.jpg", "assets/intro-pick/19.jpg", "assets/intro-pick/20.jpg", "assets/intro-pick/21.jpg", "assets/intro-pick/22.jpg"]'>
+    <!-- พื้นหลังวิดีโอ: ฉากจากเกม QUINTA -->
+    <div class="hero-bg" aria-hidden="true">
+      <video autoplay muted loop playsinline preload="auto" poster="assets/work/hero-poster.jpg">
+        <source src="assets/work/hero-loop-m.mp4" type="video/mp4" media="(max-width: 700px)">
+        <source src="assets/work/hero-loop.mp4" type="video/mp4">
+      </video>
+    </div>
+    <div class="wm">
+      <h1 aria-label="PEE"><span>P</span><span>E</span><span>E</span></h1>
+      <div class="sq" aria-hidden="true"></div>
+    </div>
+    <div class="intro">
+      <div><strong>สวัสดีครับ ผม PEEPEE</strong><p>คนที่แพ้มาตลอด และเรียนรู้จากทุกครั้งที่แพ้</p></div>
+      <div><span class="mono">Motto</span><strong>Fail fast. Learn fast.</strong></div>
+      <a class="scroll mono" href="#story">Scroll <b>↓</b></a>
+    </div>
+  </section>
+
+
+  <!-- ============ 02 STORY — ฉากค้างไว้กลางจอ เลื่อนตามปกติแล้วเปลี่ยนไปทีละหน้า (11 หน้า จนถึง "So I grabbed it" แล้วซูมเข้า SMALL WINS) ============
+       ลำดับหน้า: I LOST → ภาษาไทย → ผลงานที่แพ้ → I SEE WHERE I STAND (พิมพ์) → ภาษาไทย → วงการ์ด 3D
+                  → I GET IT BETTER → (วงกลมกวาด) FAIL FAST → Most people / Me → Opportunity → Grabbed it
+       ถ้าเพิ่ม/ลดหน้า แก้ STEPS ใน js/main.js -->
+  <section class="pstory" id="story" aria-label="เรื่องราวของผม">
+    <!-- ลิงก์ #entries (จากหน้า certificates) พามาที่หน้าวงการ์ด — ตำแหน่งตั้งโดย js/main.js -->
+    <i class="st-mark" id="entries"></i>
+
+    <div class="pst" id="pst">
+
+      <!-- A · I LOST -->
+      <div class="ly ly-a">
+        <h3 class="a-title">I <em class="hl">LOST.</em></h3>
+        <p class="a-sub">ผม<em class="hl">แพ้</em>มาตลอด — ทั้งการแข่งขัน<br>โปรเจกต์ และสิ่งที่ตั้งใจไว้</p>
+        <!-- LOSS LOG: ผลงานที่แพ้ ลอยเรียงลงไปแนวดิ่งแบบ 3D เป็นกระจกร้าว เลื่อนลงแล้วใบเดิมแตกกระจายตามการเลื่อน ใบถัดไปขึ้นมา
+             data-img = รูป (ขาวดำ) ที่ใช้ทำเศษกระจก / data-pos = จุดกึ่งกลางของรูปที่อยากให้เห็น -->
+        <div class="a-log" id="losses">
+          <article class="lx">
+            <div class="lx-card" data-img="assets/losses/mos-1-g.jpg" data-pos="40% 45%" role="img" aria-label="PEEPEE ในงาน MOS Olympic Thailand Competition"><span class="l-stamp">ไม่ติดอันดับ</span></div>
+            <div class="lx-txt"><span class="mono">ระดับประเทศ</span><h4>MOS Olympic<br>Thailand Competition</h4><p>ผมไม่ติดอันดับเลยด้วยซ้ำ และมันทำให้ผมเห็นว่าตัวเองอยู่ระดับไหน</p></div>
+          </article>
+          <article class="lx">
+            <div class="lx-card" data-img="assets/losses/itclash-board-g.jpg" data-pos="20% 50%" role="img" aria-label="ตารางคะแนน ITCLASH (เบลอชื่อผู้เข้าแข่งขัน)"><span class="l-stamp">ไม่ผ่านรอบแรก</span></div>
+            <div class="lx-txt"><span class="mono">Cybersecurity · KMITL</span><h4>ITCLASH<br>Cybersecurity</h4><p>15 ชั่วโมงถอดรหัส — ใช่ครับ ไม่ผ่านแม้แต่รอบแรก</p></div>
+          </article>
+          <article class="lx">
+            <div class="lx-card" data-img="assets/losses/nsc-1-g.jpg" data-pos="50% 50%" role="img" aria-label="ฉากเมืองกลางคืนในเกม Cube of Empty"><span class="l-stamp">ไม่ผ่านรอบแรก</span></div>
+            <div class="lx-txt"><span class="mono">NSC · Leader</span><h4>NSC<br>National Software Contest</h4><p>ผลคือไม่ผ่านแม้แต่รอบแรก มันตอกย้ำตัวผมไปอีกครั้ง</p><button type="button" class="l-more" data-open="nsc">อ่านต่อ <b>→</b></button></div>
+          </article>
+        </div>
+      </div>
+
+      <!-- B · I SEE WHERE I STAND -->
+      <div class="ly ly-b">
+        <!-- WHERE I STAND: การ์ดผลงานที่ได้ลงแข่ง หมุนเป็นวง 3D (ลากได้ / คลิกเพื่อเปิดรายละเอียด)
+             data-case = id ของ <template id="case-..."> ด้านล่างสุดของไฟล์ -->
+        <div class="ring-wrap" role="group" aria-label="ผลงานที่ได้ลงแข่ง — ลากเพื่อหมุน">
+          <div class="ring">
+            <button type="button" class="rc" data-case="metalab"><span class="rc-img"><img src="assets/entries/meta-1.jpg" alt="ทีมรับรางวัลดีเด่น Thailand Metaverse Hackathon" loading="lazy" draggable="false"><span class="rc-badge">รางวัลดีเด่น</span></span><span class="rc-b"><span class="mono">Thailand Metaverse Hackathon</span><b>MetaLab</b><em>Final 12 ทีม · เงินรางวัล ฿3,500</em></span></button>
+            <button type="button" class="rc" data-case="mayw"><span class="rc-img"><img src="assets/entries/aihack-3.jpg" alt="ผู้เข้ารอบ Leagues of Code AI Hackathon" loading="lazy" draggable="false"><span class="rc-badge">Finalist</span></span><span class="rc-b"><span class="mono">Leagues of Code AI Hackathon</span><b>Make Your Way</b><em>18 ทีมสุดท้าย จาก 200+ ทีม</em></span></button>
+            <button type="button" class="rc" data-case="guinrorn"><span class="rc-img"><img src="assets/entries/guin-1.jpg" alt="เกม GuinRorn" loading="lazy" draggable="false"><span class="rc-badge">ที่ 4 ของกลุ่ม</span></span><span class="rc-b"><span class="mono">Hamster Hub GameJamX · 72 ชม.</span><b>GuinRorn</b><em>ขาดอีก 1 อันดับ เข้ารอบชิง</em></span></button>
+            <button type="button" class="rc" data-case="mathis"><span class="rc-img"><img src="assets/entries/is-1.jpg" alt="รับรางวัลที่ 3 โครงงานคณิตศาสตร์ IS" loading="lazy" draggable="false"><span class="rc-badge">ที่ 3</span></span><span class="rc-b"><span class="mono">KP &amp; Stanley Youth Innovation</span><b>Math IS Project</b><em>รองชนะเลิศอันดับ 2</em></span></button>
+            <!-- อีกด้านของวง (ภาพอื่นของผลงานเดิม) — ทำให้มีการ์ดหันหน้ามาตลอดตอนหมุน -->
+            <button type="button" class="rc" data-case="metalab"><span class="rc-img"><img src="assets/entries/meta-2.jpg" alt="เกม MetaLab" loading="lazy" draggable="false"><span class="rc-badge">รางวัลดีเด่น</span></span><span class="rc-b"><span class="mono">Thailand Metaverse Hackathon</span><b>MetaLab</b><em>Final 12 ทีม · เงินรางวัล ฿3,500</em></span></button>
+            <button type="button" class="rc" data-case="mayw"><span class="rc-img"><img src="assets/entries/aihack-1.jpg" alt="แอป Make Your Way" loading="lazy" draggable="false"><span class="rc-badge">Finalist</span></span><span class="rc-b"><span class="mono">Leagues of Code AI Hackathon</span><b>Make Your Way</b><em>18 ทีมสุดท้าย จาก 200+ ทีม</em></span></button>
+            <button type="button" class="rc" data-case="guinrorn"><span class="rc-img"><img src="assets/entries/guin-3.jpg" alt="เกม GuinRorn" loading="lazy" draggable="false"><span class="rc-badge">ที่ 4 ของกลุ่ม</span></span><span class="rc-b"><span class="mono">Hamster Hub GameJamX · 72 ชม.</span><b>GuinRorn</b><em>ขาดอีก 1 อันดับ เข้ารอบชิง</em></span></button>
+            <button type="button" class="rc" data-case="mathis"><span class="rc-img"><img src="assets/entries/is-1.jpg" alt="โครงงานคณิตศาสตร์ IS" loading="lazy" draggable="false" style="object-position:70% 50%"><span class="rc-badge">ที่ 3</span></span><span class="rc-b"><span class="mono">KP &amp; Stanley Youth Innovation</span><b>Math IS Project</b><em>รองชนะเลิศอันดับ 2</em></span></button>
+          </div>
+          <span class="mono ring-hint">ลากเพื่อหมุน · คลิกการ์ดเพื่อดูรายละเอียด</span>
+        </div>
+        <div class="b-head">
+          <h3 class="b-title" aria-label="I SEE WHERE I STAND">I SEE WHERE I <em class="hl">STAND</em></h3>
+          <div class="b-th"><p>แต่ทุกครั้งที่แพ้ มันบอกผมว่า<br>ตอนนี้ตัวเองยืนอยู่ตรงไหน</p></div>
+        </div>
+      </div>
+
+      <!-- C · I GET IT BETTER -->
+      <div class="ly ly-c">
+        <div class="focus beat">
+          <div class="cube c-better" aria-hidden="true"><span class="floor"></span><span class="step"></span><span class="pin"></span><i></i></div>
+          <h3>I GET IT <em class="hl">BETTER</em></h3>
+          <p>และทำให้ผมรู้ว่า ผมต้องเก่งกว่านี้อีก</p>
+        </div>
+      </div>
+
+      <!-- D · FAIL FAST → Most people / Me  (แก้ประโยคได้ตามใจ) -->
+      <div class="ly ly-d">
+        <div class="d-vs versus" aria-label="สิ่งที่ผมทำต่างออกไป">
+          <span class="mono">Most people / Me</span>
+          <ul class="vs-list">
+            <li class="vs"><p class="them">คนส่วนใหญ่กลัวแพ้</p><p class="me">ผมแพ้ให้<em class="hl">เร็ว</em>.</p></li>
+            <li class="vs"><p class="them">คนส่วนใหญ่ลืมตอนที่แพ้</p><p class="me">ผม<em class="hl">จด</em>มันไว้.</p></li>
+            <li class="vs"><p class="them">คนส่วนใหญ่รอให้พร้อมก่อน</p><p class="me">ผม<em class="hl">เริ่มก่อน</em> แล้วเก่งขึ้นระหว่างทาง.</p></li>
+          </ul>
+        </div>
+        <div class="d-motto">
+          <div class="motto-type"><span class="outline">FAIL FAST.</span><span><em class="hl">LEARN</em> FAST.</span></div>
+          <p>แพ้ให้เร็ว เรียนรู้ให้ไว แล้วลุกขึ้นไปต่อ</p>
+        </div>
+        <!-- FAIL FAST. LEARN FAST. กลายเป็นค้อน ง้าง แล้วฟาดใส่หน้าจอ (เลื่อนตามการ scroll) — จอร้าว แล้วหน้านี้ร่วงลงไป -->
+        <div class="hm" aria-hidden="true">
+          <div class="hm-rot">
+            <div class="hm-handle"></div>
+            <div class="hm-head"><span class="outline">FAIL FAST.</span><span><em>LEARN</em> FAST.</span></div>
+          </div>
+        </div>
+        <svg class="hm-crack" aria-hidden="true"></svg>
+        <i class="hm-flash" aria-hidden="true"></i>
+      </div>
+
+      <!-- E · opportunity -->
+      <div class="ly ly-e">
+        <div class="focus beat">
+          <div class="cube c-opp" aria-hidden="true"><span class="floor"></span><span class="o"></span><i></i></div>
+          <h3>Then the <em class="hl">opportunity</em> came</h3>
+          <p>แล้วโอกาสก็มาถึง</p>
+        </div>
+      </div>
+
+      <!-- F · grabbed it -->
+      <div class="ly ly-f">
+        <div class="focus beat">
+          <div class="cube c-grab" aria-hidden="true"><span class="floor"></span><span class="o"></span><i></i></div>
+          <h3>So I <em class="grab-w hl">grabbed</em> it</h3>
+          <p>ผมจึงคว้ามันมา</p>
+        </div>
+      </div>
+
+      <!-- ท้ายเรื่อง: ก้อนสีฟ้าที่คว้าไว้ ขยายเป็นหน้าต่างเต็มจอ ข้างในคือตารางก้อนเล็ก ๆ ที่ติดไฟทีละก้อน = หน้าปก SMALL WINS -->
+      <div class="zw" aria-hidden="true">
+        <canvas class="zw-grid"></canvas>
+        <i class="zw-blue"></i>
+        <div class="zw-t"><h2 class="zw-h">SMALL <em>WINS.</em></h2><p>เก่งขึ้นทีละนิด จากทุกครั้งที่แพ้</p></div>
+      </div>
+      <canvas class="vapor" aria-hidden="true"></canvas>
+      <span class="pst-hint mono" aria-hidden="true">Scroll <b>↓</b></span>
+    </div>
+  </section>
+
+  <!-- ============ 03 SMALL WINS ============ -->
+  <section class="wins wrap" id="wins">
+    <div class="wins-in">
+      <!-- ผลงานเด่น: แก้ข้อความ / เปลี่ยนรูปใน assets/wins/ ได้ -->
+      <article class="win-feat wreveal">
+        <figure class="wf-main" data-zoom><img src="assets/wins/speaking.jpg" alt="PEEPEE พูดบนเวทีในงาน Science Day × AI" loading="lazy" width="653" height="648"></figure>
+        <div class="wf-text">
+          <span class="mono wf-tag"><span class="dot"></span>Win 01 · ระดับโรงเรียน</span>
+          <h3>นำทีมจัดงาน<span class="wf-en">SCIENCE DAY <b>×</b> AI</span></h3>
+          <p>พาความรู้เรื่อง AI ไปถึงทั้งน้อง ๆ และคุณครูในโรงเรียน</p>
+          <ul class="wf-points">
+            <li>น้อง ๆ ได้รู้จัก กล้าเปิดใจ และใช้งาน AI เป็น</li>
+            <li>รู้ทันอันตรายของ AI และวิธีรับมือกับมันในอนาคต</li>
+            <li>นำเสนอและช่วยเปิดมุมมองเรื่อง AI ให้คุณครู จนโรงเรียนนำ AI มาใช้ในการเรียนการสอนจริงจนถึงวันนี้</li>
+          </ul>
+          <dl class="wf-stats">
+            <div><dt><span class="count" data-to="1500">1,500</span>+</dt><dd>นักเรียนที่ได้เรียนรู้เรื่อง AI</dd></div>
+            <div><dt class="th"><span class="stamp">ใช้จริง</span></dt><dd>AI เข้าไปอยู่ในห้องเรียนจริง</dd></div>
+          </dl>
+        </div>
+      </article>
+      <div class="wf-gallery">
+        <figure class="wf-shot" data-zoom><img src="assets/wins/booth.jpg" alt="น้อง ๆ ลองใช้งานที่บูธ AI" loading="lazy" width="877" height="412"></figure>
+        <figure class="wf-shot" data-zoom><img src="assets/wins/robot-race.jpg" alt="กิจกรรมแข่งรถบังคับในงาน" loading="lazy" width="982" height="646"></figure>
+        <figure class="wf-shot" data-zoom><img src="assets/wins/group.jpg" alt="ภาพหมู่ครูและนักเรียนในงาน Science Day × AI" loading="lazy" width="1012" height="661"></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GIVE — after SMALL WINS ============ -->
+  <section class="story" aria-label="การให้">
+    <div class="scene">
+      <div class="focus beat">
+        <div class="cube c-give" aria-hidden="true"><span class="floor"></span><i></i><span class="core"></span>
+          <b class="k k1"></b><b class="k k2"></b><b class="k k3"></b><b class="k k4"></b>
+        </div>
+        <h3>That was the first time I truly learned to <em class="hl">give</em></h3>
+        <p>นั่นเป็นครั้งแรกที่ผมรู้จักการ<em class="hl">ให้</em>จริง ๆ</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 04 WORK — ฉากค้างไว้ ผลงานลอยเป็นแนวโค้ง 3D เลื่อนลงแล้วผลงานหมุนมาอยู่ตรงกลางทีละชิ้น
+       แก้ข้อมูลในการ์ด (.wk-slab) และข้อความ (.wk-info) ได้ — ลำดับต้องตรงกัน / รายละเอียดเต็มอยู่ที่ <template id="case-..."> ด้านล่าง
+       data-tint = สีแสงพื้นหลังตอนผลงานนั้นอยู่ตรงกลาง ============ -->
+  <section class="wk" id="work" aria-label="ผลงาน">
+    <div class="wk-stage">
+      <div class="wk-glow" aria-hidden="true"></div>
+      <div class="wk-head"><h2 class="wk-logo">THE WORK.</h2><p>ของที่ผมลงมือทำจริง ทั้งชิ้นที่แพ้ และชิ้นที่ได้ไปต่อ</p></div>
+      <div class="wk-scene">
+        <div class="wk-ring">
+          <button type="button" class="wk-slab" data-case="quinta" data-tint="#2fb38a" aria-label="QUINTA — ดูรายละเอียด"><span class="wk-bob"><span class="wk-face"><img src="assets/work/quinta-4.jpg" alt="" loading="lazy" draggable="false"><video muted loop playsinline preload="none" data-src="assets/work/quinta-loop.mp4" aria-hidden="true"></video><i class="wk-gloss"></i><span class="wk-vt">QUINTA</span><span class="wk-no mono">01</span></span></span></button>
+          <button type="button" class="wk-slab" data-case="metalab" data-tint="#3a7bd5" aria-label="METALAB — ดูรายละเอียด"><span class="wk-bob"><span class="wk-face"><img src="assets/entries/meta-2.jpg" alt="" loading="lazy" draggable="false"><video muted loop playsinline preload="none" data-src="assets/work/metalab-loop.mp4" aria-hidden="true"></video><i class="wk-gloss"></i><span class="wk-vt">METALAB</span><span class="wk-no mono">02</span></span></span></button>
+          <button type="button" class="wk-slab" data-case="mayw" data-tint="#e0712a" aria-label="MAKE YOUR WAY — ดูรายละเอียด"><span class="wk-bob"><span class="wk-face"><img src="assets/entries/aihack-1.jpg" alt="" loading="lazy" draggable="false"><i class="wk-gloss"></i><span class="wk-vt">MAKE YOUR WAY</span><span class="wk-no mono">03</span></span></span></button>
+          <button type="button" class="wk-slab" data-case="guinrorn" data-tint="#4fb0e6" aria-label="GUINRORN — ดูรายละเอียด"><span class="wk-bob"><span class="wk-face"><img src="assets/entries/guin-1.jpg" alt="" loading="lazy" draggable="false"><video muted loop playsinline preload="none" data-src="assets/work/guin-loop.mp4" aria-hidden="true"></video><i class="wk-gloss"></i><span class="wk-vt">GUINRORN</span><span class="wk-no mono">04</span></span></span></button>
+          <button type="button" class="wk-slab" data-case="nsc" data-tint="#7b4dff" aria-label="CUBE OF EMPTY — ดูรายละเอียด"><span class="wk-bob"><span class="wk-face"><img src="assets/losses/nsc-2.jpg" alt="" loading="lazy" draggable="false"><video muted loop playsinline preload="none" data-src="assets/work/cube-loop.mp4" aria-hidden="true"></video><i class="wk-gloss"></i><span class="wk-vt">CUBE OF EMPTY</span><span class="wk-no mono">05</span></span></span></button>
+          <button type="button" class="wk-slab" data-case="ghost" data-tint="#c9352b" aria-label="GHOST GAME — ดูรายละเอียด"><span class="wk-bob"><span class="wk-face"><img src="assets/work/ghost-2.jpg" alt="" loading="lazy" draggable="false"><i class="wk-gloss"></i><span class="wk-vt">GHOST GAME</span><span class="wk-no mono">06</span></span></span></button>
+          <button type="button" class="wk-slab" data-case="dek70" data-tint="#6a45d8" aria-label="DEK70 HORROR — ดูรายละเอียด"><span class="wk-bob"><span class="wk-face"><img src="assets/work/dek70-horror.jpg" alt="" loading="lazy" draggable="false"><i class="wk-gloss"></i><span class="wk-vt">DEK70 HORROR</span><span class="wk-no mono">07</span></span></span></button>
+          <button type="button" class="wk-slab" data-case="mathis" data-tint="#d6a334" aria-label="MATH IS PROJECT — ดูรายละเอียด"><span class="wk-bob"><span class="wk-face"><img src="assets/entries/is-1.jpg" alt="" loading="lazy" draggable="false"><i class="wk-gloss"></i><span class="wk-vt">MATH IS PROJECT</span><span class="wk-no mono">08</span></span></span></button>
+        </div>
+      </div>
+      <div class="wk-ped" aria-hidden="true"><i></i></div>
+      <div class="wk-infos">
+          <div class="wk-info" data-i="0"><span class="mono wk-role">01 · Solo project · ทำเองทุกอย่าง</span><h3 class="wk-title">QUINTA</h3><p>เกม Puzzle ลึกลับ ที่ต้องดึงความสามารถของวัตถุมาใช้แก้ปริศนา</p><span class="wk-res">กำลังพัฒนา · Coming soon</span><div class="wk-btns"><button type="button" class="wk-btn" data-open="quinta">ดูรายละเอียด <b>→</b></button></div></div>
+          <div class="wk-info" data-i="1"><span class="mono wk-role">02 · Idea · Game systems · Unity</span><h3 class="wk-title">METALAB</h3><p>ห้องแล็บวิทยาศาสตร์เสมือนจริง เล่น Co-op กับเพื่อน และครูใช้สอนได้</p><span class="wk-res">รางวัลดีเด่น ฿3,500 · Final 12 ทีม</span><div class="wk-btns"><button type="button" class="wk-btn" data-open="metalab">ดูรายละเอียด <b>→</b></button></div></div>
+          <div class="wk-info" data-i="2"><span class="mono wk-role">03 · Product design · AI · Tech lead</span><h3 class="wk-title">MAKE YOUR WAY</h3><p>แอป AI ที่สร้างเกม 2D เพื่อการศึกษาจากสิ่งที่เด็กอยากเรียน</p><span class="wk-res">Finalist · 18 ทีมจาก 200+</span><div class="wk-btns"><button type="button" class="wk-btn" data-open="mayw">ดูรายละเอียด <b>→</b></button></div></div>
+          <div class="wk-info" data-i="3"><span class="mono wk-role">04 · Game systems · Unity · 72 ชม.</span><h3 class="wk-title">GUINRORN</h3><p>เกม Puzzle เพนกวินสาย ragdoll ที่ทำเสร็จใน 72 ชั่วโมง</p><span class="wk-res">ที่ 4 ของกลุ่ม · ขาด 1 อันดับเข้ารอบชิง</span><div class="wk-btns"><button type="button" class="wk-btn" data-open="guinrorn">ดูรายละเอียด <b>→</b></button><a class="wk-btn ghost" href="https://pepess1.itch.io/guinrornn" target="_blank" rel="noopener">▶ เล่นบน itch.io ↗</a></div></div>
+          <div class="wk-info" data-i="4"><span class="mono wk-role">05 · Leader · Game design · Systems</span><h3 class="wk-title">CUBE OF EMPTY</h3><p>เกม Puzzle Action ที่รวม 3D และ 2D ไว้ในเกมเดียว ทำใน 1 เดือน</p><span class="wk-res">NSC · ไม่ผ่านรอบแรก</span><div class="wk-btns"><button type="button" class="wk-btn" data-open="nsc">ดูรายละเอียด <b>→</b></button></div></div>
+          <div class="wk-info" data-i="5"><span class="mono wk-role">06 · Game dev · Unity · Camp</span><h3 class="wk-title">GHOST GAME</h3><p>เกมผีจากแคมป์ Python x Hunter ที่พาผมไปสู่โปรเจกต์ NSC 2026</p><span class="wk-res">ได้เข้าโปรเจกต์ NSC 2026</span><div class="wk-btns"><button type="button" class="wk-btn" data-open="ghost">ดูรายละเอียด <b>→</b></button></div></div>
+          <div class="wk-info" data-i="6"><span class="mono wk-role">07 · Map design · Level layout</span><h3 class="wk-title">DEK70 HORROR</h3><p>เกม horror ที่ผมพัฒนาการจัดแมพร่วมกับเพื่อน</p><span class="wk-res">DEK70 Camp Plus+</span><div class="wk-btns"><button type="button" class="wk-btn" data-open="dek70">ดูรายละเอียด <b>→</b></button></div></div>
+          <div class="wk-info" data-i="7"><span class="mono wk-role">08 · IS Project · คณิตศาสตร์</span><h3 class="wk-title">MATH IS PROJECT</h3><p>โครงงานคณิตศาสตร์ IS งาน KP &amp; Stanley Youth Innovation Challenge</p><span class="wk-res">ที่ 3 · รองชนะเลิศอันดับ 2</span><div class="wk-btns"><button type="button" class="wk-btn" data-open="mathis">ดูรายละเอียด <b>→</b></button></div></div>
+      </div>
+      <div class="wk-side mono" aria-hidden="true"><b class="wk-n">01</b> / 08<span class="wk-bar"><i></i></span></div>
+      <span class="wk-hint mono" aria-hidden="true">Scroll <b>↓</b></span>
+    </div>
+  </section>
+  <!-- ปุ่มไปหน้าเกียรติบัตร: ใบเซอร์ลอยเป็นกองแบบ 3D บนฉากฝนตัวอักษร (โลก Matrix แบบเดียวกับหน้า certificates) -->
+  <div class="wk-after wrap">
+    <a class="cert-cta" href="certificates.html">
+      <canvas class="cc-rain" aria-hidden="true"></canvas>
+      <span class="cc-txt">
+        <span class="mono cc-tag"><i></i>Certificates · 13 ใบ · 3 รางวัล</span>
+        <b class="cc-h">PROOF<span>.</span></b>
+        <span class="cc-go mono">Enter <b>→</b></span>
+      </span>
+      <span class="cc-stack" aria-hidden="true">
+        <img src="assets/certs/metaverse-design-delight.jpg" alt="" loading="lazy" style="--i:0">
+        <img src="assets/certs/aihack-cert.jpg" alt="" loading="lazy" style="--i:1">
+        <img src="assets/certs/is-stanley-3rd.jpg" alt="" loading="lazy" style="--i:2">
+        <img src="assets/certs/superai-practitioner.jpg" alt="" loading="lazy" style="--i:3">
+        <img src="assets/certs/guin-cert.jpg" alt="" loading="lazy" style="--i:4">
+      </span>
+    </a>
+  </div>
+
+  <!-- ============ 05 ABOUT (light panel) ============ -->
+  <section class="panel-wrap wrap" id="about">
+    <div class="panel grow about">
+      <!-- บัตรห้อยคอ 3D: ลาก เหวี่ยง คลิกได้ (รูปอยู่ที่ assets/me.jpg) -->
+      <div class="lanyard" id="lanyard" aria-label="บัตรของ PEEPEE — ลากหรือคลิกได้">
+        <canvas aria-hidden="true"></canvas>
+        <div class="badge" role="button" tabindex="0" aria-label="คลิกเพื่อเปลี่ยนคำอธิบาย">
+          <div class="bd-face bd-front">
+            <div class="bd-top"><span class="bd-logo">Pepes<i></i></span><span class="bd-tag">GAME DEV · 2026</span></div>
+            <div class="bd-photo"><img src="assets/me.jpg" alt="PEEPEE" draggable="false"></div>
+            <div class="bd-name">PEEPEE</div>
+            <div class="bd-sub"><span>Unity · C#</span><span>Fail fast. Learn fast.</span></div>
+            <span class="bd-slot"></span>
+          </div>
+          <div class="bd-face bd-back"><span class="bd-logo">Pepes<i></i></span><span class="bd-motto">FAIL FAST.<br>LEARN FAST.</span><span class="bd-tag">chompapopd@gmail.com</span><span class="bd-slot"></span></div>
+        </div>
+        <span class="ly-hint mono">ลากเล่นได้ · คลิกเพื่อรู้จักผมมากขึ้น</span>
+      </div>
+      <div>
+        <h2 class="big">ABOUT ME</h2>
+        <p class="lead">ผมกล้าที่จะเริ่ม<br>ในตอนที่ผม<em class="hl">กลัว</em>ที่จะเริ่ม.</p>
+        <p class="body ab-line" id="aboutLine" aria-live="polite">ผมเคยลงสมัครแข่งไปมากกว่า <b>20 รายการ</b> แต่ไม่ผ่านเข้ารอบเลยสักครั้ง</p>
+        <div class="ab-stats">
+          <div><b>8</b><span class="mono">Projects</span></div>
+          <div><b>13</b><span class="mono">Certificates</span></div>
+          <div><b>72</b><span class="mono">Hrs longest jam</span></div>
+        </div>
+        <ol class="tl">
+          <li><span class="mono now">2026</span><span>รางวัลดีเด่น · Thailand Metaverse Hackathon</span><small>MetaLab</small></li>
+          <li><span class="mono">2026</span><span>HamsterHub GameJamX</span><small>GuinRorn</small></li>
+          <li><span class="mono">2025</span><span>Finalist · Leagues of Code AI Hackathon</span><small>Make Your Way</small></li>
+        </ol>
+      </div>
+      <div class="ab-skills">
+          <span class="mono">Skills — ลากเพื่อหมุน</span>
+          <div class="sphere" id="skillSphere" aria-label="Unity, C#, Game Systems, Level Design, Puzzle Design, Python, AI, Prompting, Figma, Canva, Pitching, Teamwork, GitHub, Game Jam"></div>
+        </div>
+
+    </div>
+  </section>
+
+
+  <!-- ============ 06 CONTACT (light panel) ============ -->
+  <section class="panel-wrap wrap" id="contact">
+    <div class="panel grow contact">
+      <h2 class="big">LET'S MAKE<br>SOMETHING.</h2>
+      <div class="c-row">
+        <div>
+          <span class="mono">Email</span>
+          <!-- เปลี่ยนอีเมลทั้งสองจุด -->
+          <a class="mail" href="mailto:chompapopd@gmail.com">chompapopd@gmail.com <b>↗</b></a>
+        </div>
+        <div class="socials">
+          <a href="https://www.instagram.com/0ctopus_p" target="_blank" rel="noopener">INSTAGRAM ↗</a>
+          <a href="https://github.com/PepesX231" target="_blank" rel="noopener">GITHUB ↗</a>
+          <a href="https://discord.com/users/417675346209538048" target="_blank" rel="noopener" title="Discord: thp_pepes">DISCORD · thp_pepes ↗</a>
+          <a href="https://pepess1.itch.io/" target="_blank" rel="noopener">ITCH.IO ↗</a>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<footer class="foot wrap">
+  <a class="logo" href="#home">Pepes</a>
+  <span class="mono">PEEPEE — Fail fast. Learn fast. © 2026</span>
+  <a class="mono on" href="#home">Back to top ↑</a>
+</footer>
+</div>
+
+<div id="fx" aria-hidden="true"></div>
+<script src="js/rain.js" defer></script>
+<script src="js/main.js" defer></script>
+<!-- ============ CASE STUDIES (เนื้อหาเต็มของแต่ละผลงาน — เปิดเมื่อกด "ดูรายละเอียด") ============ -->
+<div id="cases" hidden>
+  <template id="case-quinta" data-n="01" data-title="QUINTA" data-gallery='["assets/work/quinta-trailer.mp4", "assets/work/quinta-1.jpg", "assets/work/quinta-2.jpg", "assets/work/quinta-3.jpg", "assets/work/quinta-4.jpg", "assets/work/quinta-5.jpg"]'>
+    <span class="mono cs-role">Solo project · ทำเองทุกอย่าง</span>
+    <h2 class="cs-title">QUINTA</h2>
+    <span class="mono cs-meta">กำลังพัฒนา · Coming soon</span>
+    <div class="cs-stats"><div><b>1</b><span class="mono">คน ทำทั้งเกม</span></div><div><b>∞</b><span class="mono">ไอเดียที่ลองทิ้ง</span></div></div>
+    <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>QUINTA เป็นเกมแนว Puzzle ลึกลับ คอนเซปต์หลักคือผู้เล่นสามารถ<em>ดึงความสามารถ หรือ identity ของวัตถุต่าง ๆ</em> มาใช้แก้ปริศนาในแต่ละด่าน</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>เป็นโปรเจกต์เดี่ยวที่ผมทำเองทุกอย่าง ตั้งแต่คิดคอนเซปต์ ออกแบบด่าน ทำระบบเกม จนถึงจัดฉาก เพื่อฝึกตัวเองในหลาย ๆ ด้าน</p></section><section><h4 class="mono">ต่อจากนี้</h4><p>ในอนาคตจะนำลงแพลตฟอร์ม ให้คนได้ลองเล่นจริง</p></section></div>
+    
+  </template>
+  <template id="case-metalab" data-n="02" data-title="METALAB" data-gallery='["assets/work/metalab-gameplay.mp4", "assets/work/meta-stage.jpg", "assets/entries/meta-1.jpg", "assets/entries/meta-2.jpg", "assets/entries/meta-3.jpg", "assets/work/meta-camp.jpg", "assets/work/meta-farm.jpg", "assets/entries/meta-4.jpg", "assets/work/meta-teacher.jpg", "assets/work/meta-room.jpg"]'>
+    <span class="mono cs-role">Idea · Game systems · Unity</span>
+    <h2 class="cs-title">METALAB</h2>
+    <span class="mono cs-meta">รางวัลดีเด่น · Metaverse Hackathon · 2026</span>
+    <div class="cs-stats"><div><b>TOP 12</b><span class="mono">Final teams</span></div><div><b>฿3,500</b><span class="mono">รางวัลดีเด่น</span></div></div>
+    <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>ห้องแล็บวิทยาศาสตร์เสมือนจริง ทั้งชีวะ ฟิสิกส์ และเคมี ให้คนที่ไม่มีโอกาสได้ใช้ห้องแล็บ ได้ทดลองเสมือนจริงโดยไม่มีอันตราย</p></section><section><h4 class="mono">ฟีเจอร์เด่น</h4><p><b>โหมด Co-op</b> เล่นกับเพื่อนได้ และ<b>โหมดสำหรับครู</b> ที่ครูนำไปสอนนักเรียนได้ โดยครูเป็นคน<em>คุมพารามิเตอร์เบื้องหลัง</em>ในแต่ละด่าน</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมคิดไอเดียทั้งหมด และทำระบบทั้งหมดของเกม</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>ผ่านเข้า 24 ทีม แล้วได้เข้ารอบ Final 12 ทีมสุดท้าย และได้<em>รางวัลดีเด่น (Design Delight)</em> พร้อมเงินรางวัล 3,500 บาท คุณครู โรงเรียน และเด็ก ๆ ได้ลองใช้แล้ว ผลตอบรับดี และมีศักยภาพพอจะพัฒนาต่อเป็น product จริงได้</p></section><section><h4 class="mono">ได้เรียนรู้</h4><p>การพรีเซนต์และการ pitching การเลือกใช้คำพูด การทำงานเป็นทีม การสื่อสารและแลกเปลี่ยนความคิดกัน และเข้าใจ Unity มากขึ้น</p></section></div>
+    
+  </template>
+  <template id="case-mayw" data-n="03" data-title="MAKE YOUR WAY" data-gallery='["assets/work/aihack-team.jpg", "assets/entries/aihack-1.jpg", "assets/entries/aihack-2.jpg", "assets/work/aihack-window.jpg", "assets/work/aihack-pitch.jpg", "assets/work/aihack-lounge.jpg", "assets/entries/aihack-3.jpg"]'>
+    <span class="mono cs-role">Product design · AI · Tech lead</span>
+    <h2 class="cs-title">MAKE YOUR WAY</h2>
+    <span class="mono cs-meta">Finalist 18 ทีม · AI Hackathon · 2025</span>
+    <div class="cs-stats"><div><b>200+</b><span class="mono">ทีมที่สมัคร</span></div><div><b>TOP 18</b><span class="mono">Finalist</span></div></div>
+    <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>แอป AI Game Generative เกม 2D เพื่อการศึกษาให้เด็กและวัยรุ่นสนุกไปพร้อมได้ความรู้ แค่พิมพ์ว่าอยากเรียนวิชาอะไร บทไหน และชอบเกมแนวไหน ระบบจะสร้างเกมให้</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมคิดและออกแบบแอปทั้งหมด และดูแลด้านเทคนิคทั้งหมด</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>จากทีมที่สมัครกว่า 200 ทีม ได้เข้ารอบ <em>Finalist 18 ทีมสุดท้าย</em> ด้วยข้อจำกัดหลายอย่าง โปรเจกต์นี้ไม่ได้ไปต่อ แต่เปิดแนวทางใหม่ ๆ ให้ในอนาคต</p></section><section><h4 class="mono">ได้เรียนรู้</h4><p>การทำงานเป็นทีม ความยากของการสร้าง product ให้ใช้งานได้จริง และความรู้ด้าน AI</p></section></div>
+    
+  </template>
+  <template id="case-guinrorn" data-n="04" data-title="GUINRORN" data-gallery='["assets/work/guin-gameplay.mp4", "assets/entries/guin-1.jpg", "assets/work/guin-7.jpg", "assets/work/guin-6.jpg", "assets/entries/guin-2.jpg", "assets/work/guin-8.jpg", "assets/entries/guin-3.jpg", "assets/entries/guin-4.jpg", "assets/entries/guin-5.jpg"]'>
+    <span class="mono cs-role">Game systems · Unity · 72 ชม.</span>
+    <h2 class="cs-title">GUINRORN</h2>
+    <span class="mono cs-meta">Apr 2026 · HamsterHub GameJamX</span>
+    <div class="cs-stats"><div><b>72</b><span class="mono">ชั่วโมง</span></div><div><b>66</b><span class="mono">views</span></div><div><b>11</b><span class="mono">downloads</span></div></div>
+    <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>เกม Puzzle เพนกวิน ที่ทำใน HamsterHub GameJamX ภายใน 72 ชั่วโมง คว้าของได้ทั้งมือซ้าย–ขวา และกด Q เพื่อ ragdoll</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมรับหน้าที่ทำระบบทั้งหมดของเกม และเป็นส่วนสำคัญในการออกแบบเกม</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>มีคนเข้าแข่งกว่า 100 ทีม รอบชิงรับแค่ 12 ทีมจาก 4 กลุ่ม ต้องติดที่ 1–3 ของกลุ่มถึงจะได้เข้ารอบ ทีมเราเป็นหนึ่งในตัวเต็ง แต่ได้ที่ 4 <em>อีกแค่ 1 อันดับก็จะได้เข้ารอบ Finalist</em> และ 3 ทีมที่เข้ารอบจากกลุ่มเรา ติด Top 5 ทั้งหมด เกมนี้มีศักยภาพพอจะพัฒนาต่อเป็นเกมจริงได้</p></section><section><h4 class="mono">ได้เรียนรู้</h4><p>Unity มากขึ้น การทำงานเป็นทีม การสื่อสาร และการแบ่งเวลาให้ดี</p></section></div>
+    <div class="cs-links"><a class="l-link" href="https://pepess1.itch.io/guinrornn" target="_blank" rel="noopener">▶ เล่นบน itch.io ↗</a></div>
+  </template>
+  <template id="case-nsc" data-n="05" data-title="CUBE OF EMPTY" data-gallery='["assets/work/cube-gameplay.mp4", "assets/losses/nsc-1.jpg", "assets/losses/nsc-2.jpg", "assets/losses/nsc-3.jpg", "assets/losses/nsc-4.jpg", "assets/losses/nsc-5.jpg"]'>
+    <span class="mono cs-role">Leader · Game design · Systems</span>
+    <h2 class="cs-title">CUBE OF EMPTY</h2>
+    <span class="mono cs-meta">National Software Contest</span>
+    <div class="cs-stats"><div><b>30</b><span class="mono">วันที่มี</span></div><div><b>3D+2D</b><span class="mono">ในเกมเดียว</span></div></div>
+    <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>Cube of Empty เกมแนว Puzzle Action ที่รวม 3D และ 2D ไว้ในเกมเดียว ทำส่งการแข่งขัน NSC โดยมีเวลาทำ 1 เดือน</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมเป็น Leader คิดและออกแบบเกม และทำระบบเกมทั้งหมด พวกเราตั้งใจกับงานนี้มาก</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>ผลคือ<em>ไม่ผ่านแม้แต่รอบแรก</em> มันตอกย้ำตัวผมไปอีกครั้ง แต่ก็เป็นหนึ่งในความแพ้ที่ทำให้ผมรู้ว่ายังต้องเก่งขึ้นอีก</p></section></div>
+    
+  </template>
+  <template id="case-ghost" data-n="06" data-title="GHOST GAME" data-gallery='["assets/work/ghost-2.jpg", "assets/work/ghost-1.jpg", "assets/work/ghost-3.jpg"]'>
+    <span class="mono cs-role">Game dev · Unity · Camp</span>
+    <h2 class="cs-title">GHOST GAME</h2>
+    <span class="mono cs-meta">Python x Hunter · Feb–Mar 2026</span>
+    
+    <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>เกมผีที่ผมทำในแคมป์ Python x Hunter ของ Hamster Hub</p></section><section><h4 class="mono">ได้อะไร</h4><p>แคมป์นี้ทำให้ผมได้อัปสกิลและได้ความรู้ Unity มากขึ้นมาก ๆ</p></section><section><h4 class="mono">ต่อยอด</h4><p>และแคมป์นี้เองที่ทำให้ผม<em>ได้โอกาสเข้าไปในโปรเจกต์ NSC 2026 ของ Hamster Hub</em></p></section></div>
+    <div class="cs-links"><a class="l-link" href="certificates.html">ดูเกียรติบัตร ↗</a></div>
+  </template>
+  <template id="case-dek70" data-n="07" data-title="DEK70 HORROR" data-gallery='["assets/work/dek70-horror.jpg"]'>
+    <span class="mono cs-role">Map design · Level layout</span>
+    <h2 class="cs-title">DEK70 HORROR</h2>
+    <span class="mono cs-meta">DEK70 Camp Plus+ · Apr 2026</span>
+    
+    <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>เกม horror ที่ทำในแคมป์ DEK70 Camp Plus+ ของ Hamster Hub</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมพัฒนาการจัดแมพร่วมกับเพื่อน ทั้งวางเส้นทาง บรรยากาศ และจังหวะความน่ากลัว</p></section></div>
+    <div class="cs-links"><a class="l-link" href="certificates.html">ดูเกียรติบัตร ↗</a></div>
+  </template>
+  <template id="case-mathis" data-n="08" data-title="MATH IS PROJECT" data-gallery='["assets/entries/is-1.jpg"]'>
+    <span class="mono cs-role">IS Project · คณิตศาสตร์</span>
+    <h2 class="cs-title">MATH IS PROJECT</h2>
+    <span class="mono cs-meta">ที่ 3 · KP &amp; Stanley · 2026</span>
+    <div class="cs-stats"><div><b>#3</b><span class="mono">รองชนะเลิศอันดับ 2</span></div></div>
+    <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>โครงงานคณิตศาสตร์ IS ระดับชั้นมัธยมศึกษาตอนปลาย</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>ได้<em>รองชนะเลิศอันดับ 2</em> ในงาน KP &amp; Stanley Open House: Youth Innovation Challenge 2025</p></section></div>
+    
+  </template>
+</div>
+</body>
+</html>
