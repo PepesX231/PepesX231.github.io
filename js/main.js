@@ -2514,8 +2514,9 @@
         // the comics stop, the letters go solid, the page lands
         function outro() {
           if (ended) return;
-          ended = true;
-          cleanup(); land();
+          // the comics cut to black; PEE stays alone on black for ~2 s … then the blue block shoots in
+          mv.classList.add('black');
+          at(2000, () => { if (ended) return; ended = true; cleanup(); land(); });
         }
       });
     }

@@ -1486,3 +1486,5 @@ html.intro-on .wm h1.shots{-webkit-text-stroke:2px rgba(246,246,243,.95);filter:
 .mv-cam{position:absolute;inset:0;will-change:transform}
 .mv-f{opacity:0}
 html.intro-on .wm h1.shots{-webkit-text-stroke:0}
+.mv-cam{transition:opacity .35s ease}
+.mv.black .mv-cam,.mv.black::before{opacity:0}
