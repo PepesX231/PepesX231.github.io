@@ -2477,10 +2477,10 @@
         if (ended) return;
         const pics = shots.filter(s => ready.includes(s)); if (!pics.length) { finish(); return; }
         let pi = 0; const next = () => `url("${pics[pi++ % pics.length]}")`;
-        const C = reduce ? 8 : 44;                                         // number of cuts
-        const dur = Array.from({ length: C }, (_, k) => 230 - 165 * Math.pow(k / (C - 1), .75));   // 230 ms → 65 ms, speeding up steadily
+        const C = reduce ? 8 : 80;                                         // number of cuts
+        const dur = Array.from({ length: C }, (_, k) => 95 - 62 * Math.pow(k / (C - 1), .7));   // 95 ms → 33 ms, a blur of comics
         const total = dur.reduce((a, b) => a + b, 0);
-        const PEE_AT = total * .42;                                        // PEE shows up while the comics are still flying
+        const PEE_AT = total * .2;                                        // PEE shows up while the comics are still flying
         mv.classList.add('go');
         // the camera slowly pulls back over the whole thing
         run(cam, [{ scale: 1.3 }, { scale: 1 }], { duration: total + 1600, easing: 'cubic-bezier(.3,0,.2,1)', fill: 'forwards' });
@@ -2490,14 +2490,14 @@
         const cut = () => {
           if (ended) return;
           // build the next page on the back layer, then cross-fade it in (smooth, never a hard flash)
-          const fr = frames[k % 2], d = dur[k], fade = Math.min(110, d * .5);
+          const fr = frames[k % 2], d = dur[k], fade = Math.min(40, d * .4);
           fr.className = 'mv-f ' + LAY[(k * 7 + (k >> 2)) % LAY.length];
           $$('.mv-p', fr).forEach(p => { p.style.backgroundImage = next(); p.style.backgroundPosition = `${(k * 37) % 100}% ${(k * 53) % 100}%`; });
           fr.style.zIndex = k + 1;
           const rot = ((k * 73) % 7 - 3) * .5;
           run(fr, [{ opacity: 0, transform: `scale(1.08) rotate(${rot}deg)` }, { opacity: 1, transform: `scale(1.045) rotate(${rot * .7}deg)`, offset: fade / (d + fade) }, { opacity: 1, transform: `scale(1) rotate(${rot * .4}deg)` }],
             { duration: d + fade, easing: 'linear', fill: 'forwards' });
-          if (k % 2 === 0) sound.play('tick', k);
+          if (k % 4 === 0) sound.play('tick', k);
           k++;
           if (k < C) at(d, cut); else at(d + 500, outro);
         };
@@ -2509,7 +2509,7 @@
           mv.classList.add('dim');
           sound.play('open');
           // PEE grows slowly and steadily from small to full size (the Marvel logo move)
-          run(h1, [{ transform: 'scale(.45)', opacity: 0 }, { transform: 'scale(.62)', opacity: 1, offset: .22 }, { transform: 'scale(1)', opacity: 1 }], { duration: total - PEE_AT + 500, easing: 'cubic-bezier(.3,.1,.3,1)', fill: 'backwards' });
+          run(h1, [{ transform: 'scale(.12)', opacity: 0 }, { transform: 'scale(.2)', opacity: 1, offset: .12 }, { transform: 'scale(1)', opacity: 1 }], { duration: total - PEE_AT + 700, easing: 'cubic-bezier(.45,.05,.35,1)', fill: 'backwards' });
         });
         // the comics stop, the letters go solid, the page lands
         function outro() {
