@@ -653,7 +653,7 @@ html.intro-on .hero{z-index:2}
 /* ---------- HERO video background (gameplay from QUINTA) ---------- */
 .hero{min-height:100vh;min-height:100svh;display:flex;flex-direction:column;justify-content:center;isolation:isolate}
 .hero-bg{position:absolute;inset:0;z-index:-1;overflow:hidden;background:#000}
-.hero-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 50%;filter:saturate(1) brightness(.95)}
+.hero-bg video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 50%}
 .hero-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,11,11,.5) 0%,rgba(11,11,11,.28) 28%,rgba(11,11,11,.32) 60%,rgba(11,11,11,.75) 86%,var(--ink) 100%),radial-gradient(ellipse at 50% 45%,rgba(11,11,11,0) 40%,rgba(11,11,11,.35) 100%)}
 .hero .wm h1,.hero .intro{text-shadow:0 2px 30px rgba(0,0,0,.35)}
 /* fade-slide-up, staggered (hero text + nav after the intro) */
@@ -1343,3 +1343,12 @@ html.js .wk-stage{overflow:clip visible;overflow-x:clip;overflow-y:visible;
   .wx-stage .wf-text{gap:clamp(10px,1.8vh,18px)}
   .wx-stage .wf-main{width:min(100%,calc(100vh - 180px));justify-self:center}
 }
+
+/* v12 perf — no live blur behind the nav / SFX pill anywhere (it re-blurs the moving scenes every frame) */
+.nav.glass,.snd{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.nav.glass{background:rgba(14,14,16,.92)}
+.snd{background:rgba(14,14,16,.88)}
+/* WORK: the old title clears out before the next one comes in (no two titles on top of each other) */
+.wk-info{transition:opacity .16s ease,visibility 0s linear .16s}
+.wk-info.on{transition:opacity .4s ease .18s,visibility 0s}
+.wk-info:not(.on)>*{transform:translateY(-10px);transition:transform .2s ease}

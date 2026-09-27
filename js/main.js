@@ -447,7 +447,8 @@
         rot(t, reduce ? 0 : ay, reduce ? 0 : ax);
         const k = (t.z + 1.6) / 2.6;
         t.s.style.transform = `translate(-50%,-50%) translate3d(${(t.x * R * 1.45).toFixed(1)}px,${(t.y * R).toFixed(1)}px,0) scale(${(.6 + .5 * k).toFixed(3)})`;
-        t.s.style.opacity = (.25 + .75 * k).toFixed(3); t.s.style.zIndex = Math.round(k * 100);
+        t.s.style.opacity = (.25 + .75 * k).toFixed(3);
+        const zi = Math.round(k * 20); if (zi !== t.zi) { t.zi = zi; t.s.style.zIndex = zi; }   // re-stack only when the order really changes
       });
       raf = vis || dragging ? requestAnimationFrame(frame) : 0;
     };
@@ -1551,7 +1552,7 @@
     let grid = null, gLit = -1;
     const drawGrid = (e, ox, oy, W, Hh) => {
       if (!zc) return;
-      const dpr = Math.min(2, devicePixelRatio || 1);
+      const dpr = Math.min(1.5, devicePixelRatio || 1);
       const cell = W < 700 ? 22 : 30, gap = W < 700 ? 5 : 7;
       const key = `${W}x${Hh}`;
       if (!grid || grid.key !== key) {
@@ -1608,7 +1609,7 @@
       // it lands near the middle of the screen, so the damage is right in your face
       const piv = { x: W * (mob ? .24 : .27), y: H * .97 }, Lh = hl + hh / 2, END = mob ? 12 : 32, WIND = mob ? -34 : -46, ar = END * Math.PI / 180;
       const hit = { x: piv.x + Math.sin(ar) * Lh + Math.cos(ar) * hw * .45, y: piv.y - Math.cos(ar) * Lh + Math.sin(ar) * hw * .45 };
-      const dpr = Math.min(1.5, devicePixelRatio || 1);
+      const dpr = Math.min(mob ? 1.5 : 1.25, devicePixelRatio || 1);
       hmCv.width = Math.round(W * dpr); hmCv.height = Math.round(H * dpr);
       let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
       const D = Math.hypot(W, H), cx = hit.x, cy = hit.y, n = mob ? 14 : 22;
@@ -1650,7 +1651,26 @@
       const lines = Array.from({ length: mob ? 5 : 9 }, (_, j) => ({ x: clamp(cx + (rnd() - .5) * W * .95, 4, W - 4), w: rnd() < .25 ? 6 + rnd() * 10 : 1 + rnd() * 2.5,
         c: ['77,163,255', '246,246,243', '43,120,204', '160,205,255'][(rnd() * 4) | 0], a: .35 + rnd() * .55, at: j < (mob ? 3 : 5) ? T_HIT : T_AFTER, s: rnd() * 50 }));
       const bands = Array.from({ length: mob ? 3 : 5 }, () => ({ y: clamp(cy + (rnd() - .5) * H * .9, 0, H), h: 2 + rnd() * 12, x: rnd() * W * .5, w: W * (.3 + rnd() * .7), at: rnd() < .5 ? T_HIT : T_AFTER }));
-      HM = { hw, hh, hl, piv, END, WIND, hit, dpr, D, RK, rays, rings, cells, powder, dust, lines, bands };
+      // broken edges: at the second hit the page's straight border cracks and chips off all the way round
+      const edge = [], edgeCr = [];
+      const side = (x0, y0, x1, y1, nx, ny) => {
+        const L = Math.hypot(x1 - x0, y1 - y0); let d = 10 + rnd() * 30;
+        while (d < L - 12) {
+          const u = d / L, deep = rnd() < .2, dep = deep ? 26 + rnd() * (mob ? 40 : 70) : 3 + rnd() * 18;
+          const px = x0 + (x1 - x0) * u + nx * dep, py = y0 + (y1 - y0) * u + ny * dep;
+          edge.push([px, py]);
+          if (deep || rnd() < .25) {                                   // a little crack runs in from the chip
+            const cr = [[px, py]]; let cx2 = px, cy2 = py, a = Math.atan2(ny, nx);
+            for (let j = 0, m = 2 + (rnd() * 3 | 0); j < m; j++) { a += (rnd() - .5) * .9; const l = 14 + rnd() * 40; cx2 += Math.cos(a) * l; cy2 += Math.sin(a) * l; cr.push([cx2, cy2]); }
+            edgeCr.push(cr);
+          }
+          d += 18 + rnd() * 62;
+        }
+      };
+      side(0, 0, W, 0, 0, 1); side(W, 0, W, H, -1, 0); side(W, H, 0, H, 0, -1); side(0, H, 0, 0, 1, 0);
+      const clip = 'polygon(' + edge.map(q => q[0].toFixed(1) + 'px ' + q[1].toFixed(1) + 'px').join(',') + ')';
+      dLay.style.clipPath = '';
+      HM = { hw, hh, hl, piv, END, WIND, hit, edge, edgeCr, clip, broke: false, dpr, D, RK, rays, rings, cells, powder, dust, lines, bands };
       hmLast = -1; hmDrawn = -2;
     };
     // draw a polyline up to a float vertex index
@@ -1731,10 +1751,18 @@
         hg.fillStyle = `rgba(210,225,245,${(.8 * (1 - dt)).toFixed(3)})`;
         dust.forEach(d => { const k = e(dt), x = hit.x + Math.cos(d.a) * d.v * k, y = hit.y + Math.sin(d.a) * d.v * k + dt * dt * H * .5 * d.g; hg.fillRect(x, y, d.s, d.s); });
       }
+      // 6) the chipped border: a bright broken-glass rim + small cracks running in from the chips
+      if (t >= T_AFTER) {
+        const { edge, edgeCr } = HM, ce = c3;
+        hg.beginPath(); edge.forEach((q, j) => (j ? hg.lineTo(q[0], q[1]) : hg.moveTo(q[0], q[1]))); hg.closePath();
+        hg.strokeStyle = 'rgba(77,163,255,.35)'; hg.lineWidth = 7; hg.stroke();
+        hg.strokeStyle = 'rgba(246,246,243,.8)'; hg.lineWidth = 1.6; hg.stroke();
+        hg.beginPath(); edgeCr.forEach(cr => polyTo(cr, (cr.length - 1) * ce)); hg.strokeStyle = 'rgba(246,246,243,.6)'; hg.lineWidth = 1.1; hg.stroke();
+      }
     }
     function hammer(t) {                                    // t: 0 = the motto, 1 = the page has fallen away
       if (t < 0) {
-        if (hmLast !== -1) { dLay.style.transform = ''; pst.style.removeProperty('--mo'); if (dVs) dVs.style.opacity = ''; hmLast = -1; if (HM) HM.m = null; hmDrawn = -2; }
+        if (hmLast !== -1) { dLay.style.transform = ''; dLay.style.clipPath = ''; if (HM) HM.broke = false; pst.style.removeProperty('--mo'); if (dVs) dVs.style.opacity = ''; hmLast = -1; if (HM) HM.m = null; hmDrawn = -2; }
         return;
       }
       if (!HM) hmLayout();
@@ -1783,6 +1811,8 @@
         }
       }
       // the broken page falls away and the next page is underneath
+      const broke = t >= T_AFTER;
+      if (broke !== HM.broke) { HM.broke = broke; dLay.style.clipPath = broke ? HM.clip : ''; }
       // after the second hit the wrecked page starts to sag … then gives way
       const sag = ease(clamp((t - T_AFTER - .04) / (T_FALL - T_AFTER - .04)));
       const dy = sag * 2.2 + f5 * 110, dr = sag * 1.6 + f5 * 5;
@@ -2077,7 +2107,7 @@
     const build = () => {
       N = innerWidth < 700 ? 10 : 12;
       cw = main.offsetWidth; ch = main.offsetHeight;
-      dpr = Math.min(2, devicePixelRatio || 1);
+      dpr = Math.min(1.5, devicePixelRatio || 1);
       cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
       let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
       cells = [];
