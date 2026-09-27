@@ -58,7 +58,7 @@
     <div class="intro">
       <div><strong>สวัสดีครับ ผม ชมน์ปภพ ดีจริง</strong><p>หรือ PEEPEE — คนที่แพ้มาตลอด และเรียนรู้จากทุกครั้งที่แพ้</p></div>
       <div><span class="mono">Motto</span><strong>Fail fast. Learn fast.</strong></div>
-      <a class="scroll mono" href="#story">Scroll <b>↓</b></a>
+      <div class="intro-end"><button type="button" class="replay mono">↺ ดูอินโทรอีกครั้ง</button><a class="scroll mono" href="#story">Scroll <b>↓</b></a></div>
     </div>
   </section>
 
@@ -75,7 +75,7 @@
 
       <!-- A · I LOST -->
       <div class="ly ly-a">
-        <h3 class="a-title">I <em class="hl">LOST.</em></h3>
+        <h3 class="a-title" aria-label="I LOST.">I <em class="hl">LOST<span class="a-dot" aria-hidden="true"></span></em></h3>
         <p class="a-sub">ผม<em class="hl">แพ้</em>มาตลอด — ทั้งการแข่งขัน<br>โปรเจกต์ และสิ่งที่ตั้งใจไว้</p>
         <!-- LOSS LOG: ผลงานที่แพ้ ลอยเรียงลงไปแนวดิ่งแบบ 3D เป็นกระจกร้าว เลื่อนลงแล้วใบเดิมแตกกระจายตามการเลื่อน ใบถัดไปขึ้นมา
              data-img = รูป (ขาวดำ) ที่ใช้ทำเศษกระจก / data-pos = จุดกึ่งกลางของรูปที่อยากให้เห็น -->
@@ -90,7 +90,7 @@
           </article>
           <article class="lx">
             <div class="lx-card" data-img="assets/losses/nsc-1-g.jpg" data-pos="50% 50%" role="img" aria-label="ฉากเมืองกลางคืนในเกม Cube of Empty"><span class="l-stamp">ไม่ผ่านรอบแรก</span></div>
-            <div class="lx-txt"><span class="mono">NSC · Leader</span><h4>NSC<br>National Software Contest</h4><p>ผลคือไม่ผ่านแม้แต่รอบแรก มันตอกย้ำตัวผมไปอีกครั้ง</p><button type="button" class="l-more" data-open="nsc">อ่านต่อ <b>→</b></button></div>
+            <div class="lx-txt"><span class="mono">NSC · Leader</span><h4>NSC<br>National Software Contest</h4><p>ผลคือไม่ผ่านแม้แต่รอบแรก มันตอกย้ำตัวผมไปอีกครั้ง</p><button type="button" class="l-more" data-open="nsc">อ่านต่อ <b>→</b></button> <a class="l-more" href="fail-log.html">Fail log ทั้งหมด <b>→</b></a></div>
           </article>
         </div>
       </div>
@@ -139,7 +139,7 @@
           </ul>
         </div>
         <div class="d-motto">
-          <div class="motto-type"><span class="outline">FAIL FAST.</span><span><em class="hl">LEARN</em> FAST.</span></div>
+          <div class="motto-type" aria-label="FAIL FAST. LEARN FAST."><span class="outline">FAIL FAST.</span><span><em class="hl">LEARN</em> FAST<span class="m-dot" aria-hidden="true"></span></span></div>
           <p>แพ้ให้เร็ว เรียนรู้ให้ไว แล้วลุกขึ้นไปต่อ</p>
         </div>
         <!-- FAIL FAST. LEARN FAST. กลายเป็นค้อน ง้าง แล้วฟาดใส่หน้าจอ (เลื่อนตามการ scroll) — จอร้าว แล้วหน้านี้ร่วงลงไป -->
@@ -261,26 +261,32 @@
     </div>
   </section>
   <!-- ปุ่มไปหน้าเกียรติบัตร: ใบเซอร์ลอยเป็นกองแบบ 3D บนฉากฝนตัวอักษร (โลก Matrix แบบเดียวกับหน้า certificates) -->
+  <!-- PROOF — ฉากค้างไว้: เกียรติบัตรบินเข้ามาเรียงกัน · ค้างให้ดู · แล้วยุบรวมเป็นบล็อกฟ้าก้อนเดียว ตกลงไปเปิดหน้า ABOUT -->
+  <div class="px-pin">
+    <div class="px-stage">
   <div class="wk-after wrap">
     <a class="cert-cta" href="certificates.html">
       <canvas class="cc-rain" aria-hidden="true"></canvas>
       <span class="cc-txt">
-        <b class="cc-h">PROOF<span>.</span></b>
+        <b class="cc-h">PROOF<span class="cc-dot" aria-hidden="true"></span></b>
         <span class="cc-go mono">Enter <b>→</b></span>
       </span>
       <span class="cc-stack" aria-hidden="true">
-        <img src="assets/certs/metaverse-design-delight.jpg" alt="" loading="lazy" decoding="async" style="--i:0">
-        <img src="assets/certs/aihack-cert.jpg" alt="" loading="lazy" decoding="async" style="--i:1">
-        <img src="assets/certs/is-stanley-3rd.jpg" alt="" loading="lazy" decoding="async" style="--i:2">
-        <img src="assets/certs/superai-practitioner.jpg" alt="" loading="lazy" decoding="async" style="--i:3">
-        <img src="assets/certs/guin-cert.jpg" alt="" loading="lazy" decoding="async" style="--i:4">
+        <span class="cc-fly" style="--i:0"><img src="assets/certs/metaverse-design-delight.jpg" alt="" decoding="async" style="--i:0"></span>
+        <span class="cc-fly" style="--i:1"><img src="assets/certs/aihack-cert.jpg" alt="" decoding="async" style="--i:1"></span>
+        <span class="cc-fly" style="--i:2"><img src="assets/certs/is-stanley-3rd.jpg" alt="" decoding="async" style="--i:2"></span>
+        <span class="cc-fly" style="--i:3"><img src="assets/certs/superai-practitioner.jpg" alt="" decoding="async" style="--i:3"></span>
+        <span class="cc-fly" style="--i:4"><img src="assets/certs/guin-cert.jpg" alt="" decoding="async" style="--i:4"></span>
       </span>
     </a>
+  </div>
+      <i class="px-block" aria-hidden="true"></i>
+    </div>
   </div>
 
   <!-- ============ 05 ABOUT (light panel) ============ -->
   <section class="panel-wrap wrap" id="about">
-    <div class="panel grow about">
+    <div class="panel about unfold">
       <!-- บัตรห้อยคอ 3D: ลาก เหวี่ยง คลิกได้ (รูปอยู่ที่ assets/me.jpg) -->
       <div class="lanyard" id="lanyard" aria-label="บัตรของ ชมน์ปภพ ดีจริง (PEEPEE) — ลากหรือคลิกได้">
         <canvas aria-hidden="true"></canvas>
@@ -371,7 +377,7 @@
     <span class="mono cs-meta">กำลังพัฒนา · Coming soon</span>
     <div class="cs-stats"><div><b>1</b><span class="mono">คน ทำทั้งเกม</span></div><div><b>∞</b><span class="mono">ไอเดียที่ลองทิ้ง</span></div></div>
     <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>QUINTA เป็นเกมแนว Puzzle ลึกลับ คอนเซปต์หลักคือผู้เล่นสามารถ<em>ดึงความสามารถ หรือ identity ของวัตถุต่าง ๆ</em> มาใช้แก้ปริศนาในแต่ละด่าน</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>เป็นโปรเจกต์เดี่ยวที่ผมทำเองทุกอย่าง ตั้งแต่คิดคอนเซปต์ ออกแบบด่าน ทำระบบเกม จนถึงจัดฉาก เพื่อฝึกตัวเองในหลาย ๆ ด้าน</p></section><section><h4 class="mono">ต่อจากนี้</h4><p>ในอนาคตจะนำลงแพลตฟอร์ม ให้คนได้ลองเล่นจริง</p></section></div>
-    
+    <div class="cs-links"><a class="l-link" href="work.html?p=...">อ่านแบบเต็ม →</a></div>
   </template>
   <template id="case-metalab" data-n="02" data-title="METALAB" data-gallery='["assets/work/metalab-gameplay.mp4", "assets/work/meta-stage.jpg", "assets/entries/meta-1.jpg", "assets/entries/meta-2.jpg", "assets/entries/meta-3.jpg", "assets/work/meta-camp.jpg", "assets/work/meta-farm.jpg", "assets/entries/meta-4.jpg", "assets/work/meta-teacher.jpg", "assets/work/meta-room.jpg"]'>
     <span class="mono cs-role">Idea · Game systems · Unity</span>
@@ -379,7 +385,7 @@
     <span class="mono cs-meta">รางวัลดีเด่น · Metaverse Hackathon · 2026</span>
     <div class="cs-stats"><div><b>TOP 12</b><span class="mono">Final teams</span></div><div><b>฿3,500</b><span class="mono">รางวัลดีเด่น</span></div></div>
     <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>ห้องแล็บวิทยาศาสตร์เสมือนจริง ทั้งชีวะ ฟิสิกส์ และเคมี ให้คนที่ไม่มีโอกาสได้ใช้ห้องแล็บ ได้ทดลองเสมือนจริงโดยไม่มีอันตราย</p></section><section><h4 class="mono">ฟีเจอร์เด่น</h4><p><b>โหมด Co-op</b> เล่นกับเพื่อนได้ และ<b>โหมดสำหรับครู</b> ที่ครูนำไปสอนนักเรียนได้ โดยครูเป็นคน<em>คุมพารามิเตอร์เบื้องหลัง</em>ในแต่ละด่าน</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมคิดไอเดียทั้งหมด และทำระบบทั้งหมดของเกม</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>ผ่านเข้า 24 ทีม แล้วได้เข้ารอบ Final 12 ทีมสุดท้าย และได้<em>รางวัลดีเด่น (Design Delight)</em> พร้อมเงินรางวัล 3,500 บาท คุณครู โรงเรียน และเด็ก ๆ ได้ลองใช้แล้ว ผลตอบรับดี และมีศักยภาพพอจะพัฒนาต่อเป็น product จริงได้</p></section><section><h4 class="mono">ได้เรียนรู้</h4><p>การพรีเซนต์และการ pitching การเลือกใช้คำพูด การทำงานเป็นทีม การสื่อสารและแลกเปลี่ยนความคิดกัน และเข้าใจ Unity มากขึ้น</p></section></div>
-    
+    <div class="cs-links"><a class="l-link" href="work.html?p=metalab">อ่านแบบเต็ม →</a></div>
   </template>
   <template id="case-mayw" data-n="03" data-title="MAKE YOUR WAY" data-gallery='["assets/work/aihack-team.jpg", "assets/entries/aihack-1.jpg", "assets/entries/aihack-2.jpg", "assets/work/aihack-window.jpg", "assets/work/aihack-pitch.jpg", "assets/work/aihack-lounge.jpg", "assets/entries/aihack-3.jpg"]'>
     <span class="mono cs-role">Product design · AI · Tech lead</span>
@@ -387,7 +393,7 @@
     <span class="mono cs-meta">Finalist 18 ทีม · AI Hackathon · 2025</span>
     <div class="cs-stats"><div><b>200+</b><span class="mono">ทีมที่สมัคร</span></div><div><b>TOP 18</b><span class="mono">Finalist</span></div></div>
     <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>แอป AI Game Generative เกม 2D เพื่อการศึกษาให้เด็กและวัยรุ่นสนุกไปพร้อมได้ความรู้ แค่พิมพ์ว่าอยากเรียนวิชาอะไร บทไหน และชอบเกมแนวไหน ระบบจะสร้างเกมให้</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมคิดและออกแบบแอปทั้งหมด และดูแลด้านเทคนิคทั้งหมด</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>จากทีมที่สมัครกว่า 200 ทีม ได้เข้ารอบ <em>Finalist 18 ทีมสุดท้าย</em> ด้วยข้อจำกัดหลายอย่าง โปรเจกต์นี้ไม่ได้ไปต่อ แต่เปิดแนวทางใหม่ ๆ ให้ในอนาคต</p></section><section><h4 class="mono">ได้เรียนรู้</h4><p>การทำงานเป็นทีม ความยากของการสร้าง product ให้ใช้งานได้จริง และความรู้ด้าน AI</p></section></div>
-    
+    <div class="cs-links"><a class="l-link" href="work.html?p=mayw">อ่านแบบเต็ม →</a></div>
   </template>
   <template id="case-guinrorn" data-n="04" data-title="GUINRORN" data-gallery='["assets/work/guin-gameplay.mp4", "assets/entries/guin-1.jpg", "assets/work/guin-7.jpg", "assets/work/guin-6.jpg", "assets/entries/guin-2.jpg", "assets/work/guin-8.jpg", "assets/entries/guin-3.jpg", "assets/entries/guin-4.jpg", "assets/entries/guin-5.jpg"]'>
     <span class="mono cs-role">Game systems · Unity · 72 ชม.</span>
@@ -395,7 +401,7 @@
     <span class="mono cs-meta">Apr 2026 · HamsterHub GameJamX</span>
     <div class="cs-stats"><div><b>72</b><span class="mono">ชั่วโมง</span></div><div><b>66</b><span class="mono">views</span></div><div><b>11</b><span class="mono">downloads</span></div></div>
     <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>เกม Puzzle เพนกวิน ที่ทำใน HamsterHub GameJamX ภายใน 72 ชั่วโมง คว้าของได้ทั้งมือซ้าย–ขวา และกด Q เพื่อ ragdoll</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมรับหน้าที่ทำระบบทั้งหมดของเกม และเป็นส่วนสำคัญในการออกแบบเกม</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>มีคนเข้าแข่งกว่า 100 ทีม รอบชิงรับแค่ 12 ทีมจาก 4 กลุ่ม ต้องติดที่ 1–3 ของกลุ่มถึงจะได้เข้ารอบ ทีมเราเป็นหนึ่งในตัวเต็ง แต่ได้ที่ 4 <em>อีกแค่ 1 อันดับก็จะได้เข้ารอบ Finalist</em> และ 3 ทีมที่เข้ารอบจากกลุ่มเรา ติด Top 5 ทั้งหมด เกมนี้มีศักยภาพพอจะพัฒนาต่อเป็นเกมจริงได้</p></section><section><h4 class="mono">ได้เรียนรู้</h4><p>Unity มากขึ้น การทำงานเป็นทีม การสื่อสาร และการแบ่งเวลาให้ดี</p></section></div>
-    <div class="cs-links"><a class="l-link" href="https://pepess1.itch.io/guinrornn" target="_blank" rel="noopener">▶ เล่นบน itch.io ↗</a></div>
+    <div class="cs-links"><a class="l-link" href="work.html?p=guinrorn">อ่านแบบเต็ม →</a><a class="l-link" href="https://pepess1.itch.io/guinrornn" target="_blank" rel="noopener">▶ เล่นบน itch.io ↗</a></div>
   </template>
   <template id="case-nsc" data-n="05" data-title="CUBE OF EMPTY" data-gallery='["assets/work/cube-gameplay.mp4", "assets/losses/nsc-1.jpg", "assets/losses/nsc-2.jpg", "assets/losses/nsc-3.jpg", "assets/losses/nsc-4.jpg", "assets/losses/nsc-5.jpg"]'>
     <span class="mono cs-role">Leader · Game design · Systems</span>
@@ -403,7 +409,7 @@
     <span class="mono cs-meta">National Software Contest</span>
     <div class="cs-stats"><div><b>30</b><span class="mono">วันที่มี</span></div><div><b>3D+2D</b><span class="mono">ในเกมเดียว</span></div></div>
     <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>Cube of Empty เกมแนว Puzzle Action ที่รวม 3D และ 2D ไว้ในเกมเดียว ทำส่งการแข่งขัน NSC โดยมีเวลาทำ 1 เดือน</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมเป็น Leader คิดและออกแบบเกม และทำระบบเกมทั้งหมด พวกเราตั้งใจกับงานนี้มาก</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>ผลคือ<em>ไม่ผ่านแม้แต่รอบแรก</em> มันตอกย้ำตัวผมไปอีกครั้ง แต่ก็เป็นหนึ่งในความแพ้ที่ทำให้ผมรู้ว่ายังต้องเก่งขึ้นอีก</p></section></div>
-    
+    <div class="cs-links"><a class="l-link" href="work.html?p=nsc">อ่านแบบเต็ม →</a></div>
   </template>
   <template id="case-ghost" data-n="06" data-title="GHOST GAME" data-gallery='["assets/work/ghost-2.jpg", "assets/work/ghost-1.jpg", "assets/work/ghost-3.jpg"]'>
     <span class="mono cs-role">Game dev · Unity · Camp</span>
@@ -411,7 +417,7 @@
     <span class="mono cs-meta">Python x Hunter · Feb–Mar 2026</span>
     
     <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>เกมผีที่ผมทำในแคมป์ Python x Hunter ของ Hamster Hub</p></section><section><h4 class="mono">ได้อะไร</h4><p>แคมป์นี้ทำให้ผมได้อัปสกิลและได้ความรู้ Unity มากขึ้นมาก ๆ</p></section><section><h4 class="mono">ต่อยอด</h4><p>และแคมป์นี้เองที่ทำให้ผม<em>ได้โอกาสเข้าไปในโปรเจกต์ NSC 2026 ของ Hamster Hub</em></p></section></div>
-    <div class="cs-links"><a class="l-link" href="certificates.html">ดูเกียรติบัตร ↗</a></div>
+    <div class="cs-links"><a class="l-link" href="work.html?p=ghost">อ่านแบบเต็ม →</a><a class="l-link" href="certificates.html">ดูเกียรติบัตร ↗</a></div>
   </template>
   <template id="case-dek70" data-n="07" data-title="DEK70 HORROR" data-gallery='["assets/work/dek70-horror.jpg"]'>
     <span class="mono cs-role">Map design · Level layout</span>
@@ -419,7 +425,7 @@
     <span class="mono cs-meta">DEK70 Camp Plus+ · Apr 2026</span>
     
     <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>เกม horror ที่ทำในแคมป์ DEK70 Camp Plus+ ของ Hamster Hub</p></section><section><h4 class="mono">ผมทำอะไร</h4><p>ผมพัฒนาการจัดแมพร่วมกับเพื่อน ทั้งวางเส้นทาง บรรยากาศ และจังหวะความน่ากลัว</p></section></div>
-    <div class="cs-links"><a class="l-link" href="certificates.html">ดูเกียรติบัตร ↗</a></div>
+    <div class="cs-links"><a class="l-link" href="work.html?p=dek70">อ่านแบบเต็ม →</a><a class="l-link" href="certificates.html">ดูเกียรติบัตร ↗</a></div>
   </template>
   <template id="case-mathis" data-n="08" data-title="MATH IS PROJECT" data-gallery='["assets/entries/is-1.jpg"]'>
     <span class="mono cs-role">IS Project · คณิตศาสตร์</span>
@@ -427,7 +433,7 @@
     <span class="mono cs-meta">ที่ 3 · KP &amp; Stanley · 2026</span>
     <div class="cs-stats"><div><b>#3</b><span class="mono">รองชนะเลิศอันดับ 2</span></div></div>
     <div class="cs-body"><section><h4 class="mono">คืออะไร</h4><p>โครงงานคณิตศาสตร์ IS ระดับชั้นมัธยมศึกษาตอนปลาย</p></section><section><h4 class="mono">ผลลัพธ์</h4><p>ได้<em>รองชนะเลิศอันดับ 2</em> ในงาน KP &amp; Stanley Open House: Youth Innovation Challenge 2025</p></section></div>
-    
+    <div class="cs-links"><a class="l-link" href="work.html?p=mathis">อ่านแบบเต็ม →</a></div>
   </template>
 </div>
 </body>

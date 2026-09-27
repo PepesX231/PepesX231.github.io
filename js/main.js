@@ -1897,11 +1897,13 @@
       if (hmLast >= 0 && !reduce) {
         const cross = v => (hmLast < v && t >= v);
         if (cross(T_HIT)) {
+          dispatchEvent(new CustomEvent('pp-hit', { detail: 1 }));
           sound.play('impact');
           pst.animate([{ transform: 'none' }, { transform: 'translate(16px,-4px)' }, { transform: 'translate(-11px,5px)' }, { transform: 'translate(6px,-2px)' }, { transform: 'translate(-2px,1px)' }, { transform: 'none' }], { duration: 520, easing: 'ease-out' });
           if (navigator.vibrate) try { navigator.vibrate(45); } catch (_) {}
         }
         if (cross(T_AFTER)) {
+          dispatchEvent(new CustomEvent('pp-hit', { detail: .6 }));
           sound.play('crash');
           pst.animate([{ transform: 'none' }, { transform: 'translate(-7px,3px)' }, { transform: 'translate(5px,-2px)' }, { transform: 'none' }], { duration: 340, easing: 'ease-out' });
           if (navigator.vibrate) try { navigator.vibrate(25); } catch (_) {}
@@ -2121,7 +2123,7 @@
     h.after(cv); panel.classList.add('vx-on');
     const hint = document.createElement('span'); hint.className = 'mono vx-hint'; hint.textContent = fine ? 'ลองลากเมาส์ผ่านตัวอักษร' : 'ลองแตะที่ตัวอักษร'; cv.after(hint);
     const g = cv.getContext('2d');
-    let W = 0, Hc = 0, cell = 10, dep = 3, blocks = [], t0 = 0, started = false, done = false, raf = 0, vis = false, px = -1e4, py = -1e4, dpr = 1;
+    let W = 0, Hc = 0, cell = 10, dep = 3, blocks = [], t0 = 0, started = false, done = false, raf = 0, vis = false, px = -1e4, py = -1e4, dpr = 1, DOT = null;
     const lines = ["LET'S MAKE", 'SOMETHING.'];
     const build = () => {
       W = cv.clientWidth; if (!W) return;
@@ -2135,14 +2137,19 @@
       o.font = `400 ${fs}px Anton, Impact, "Arial Narrow", sans-serif`; o.fillStyle = '#000'; o.textBaseline = 'alphabetic';
       lines.forEach((l, i) => o.fillText(l, 0, cell * 2 + lh * (i + 1) - fs * .06));
       const d = o.getImageData(0, 0, W, Hc).data;
+      // where the final "." is — the buddy cube comes to live there
+      const last = lines.length - 1, xa = o.measureText(lines[last].slice(0, -1)).width, xb = o.measureText(lines[last]).width, yb = cell * 2 + lh * lines.length - fs * .06;
       const prev = new Map(blocks.map(b => [b.key, b]));
       blocks = [];
       for (let y = 0; y + cell <= Hc; y += cell) for (let x = 0; x + cell <= W; x += cell) {
         const q = ((y + (cell >> 1)) * W + x + (cell >> 1)) * 4;
         if (d[q + 3] < 128) continue;
         const key = x + ',' + y, p = prev.get(key);
-        blocks.push({ key, x, y, l: p ? p.l : 0, dl: (x / W) * 900 + (y / Hc) * 250 + Math.random() * 380 });
+        const dot = x + cell / 2 >= xa - 1 && x + cell / 2 <= xb + 1 && y > yb - fs * .35;
+        blocks.push({ key, x, y, dot, l: p ? p.l : 0, dl: (x / W) * 900 + (y / Hc) * 250 + Math.random() * 380 });
       }
+      const db = blocks.filter(b => b.dot);
+      DOT = db.length ? { x0: Math.min(...db.map(b => b.x)), y0: Math.min(...db.map(b => b.y)), x1: Math.max(...db.map(b => b.x)) + cell - 1, y1: Math.max(...db.map(b => b.y)) + cell - 1, dl: Math.max(...db.map(b => b.dl)) } : null;
       blocks.sort((a, b) => a.y - b.y || b.x - a.x);                   // back to front
       dpr = DPR(1.5);
       cv.width = W * dpr; cv.height = Hc * dpr; cv.style.height = Hc + 'px';
@@ -2157,7 +2164,7 @@
       let busy = false;
       for (const b of blocks) {
         const k = Math.min(1, Math.max(0, (prog - b.dl / 1530 * .62) / .38));   // each block falls in as you scroll
-        if (k <= 0) continue;
+        if (k <= 0 || (b.dot && window.__vxHide)) continue;             // the "." is the buddy cube while it's around
         const dist = Math.hypot(b.x + s / 2 - px, b.y + s / 2 - py);
         const want = dist < R ? (1 - dist / R) ** 1.5 * cell * 2.2 : 0;
         b.l += (want - b.l) * .22;
@@ -2175,6 +2182,14 @@
       else if (started && !busy) done = true;
     };
     const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
+    window.__vxRedraw = kick;
+    window.__vxDot = () => {                                           // the "." in screen space, and whether it has landed
+      if (!DOT || !vis) return null;
+      const r = cv.getBoundingClientRect(), prog = reduce ? 1 : Math.max(0, Math.min(1, (innerHeight * .98 - r.top) / (innerHeight * .62)));
+      const k = Math.min(1, (prog - DOT.dl / 1530 * .62) / .38), sz = Math.max(DOT.x1 - DOT.x0, DOT.y1 - DOT.y0);
+      const fallY = k > 0 ? (1 - bounce(k)) * (Hc + 80) : 0;             // still bouncing into place, like its neighbours
+      return { x: r.left + (DOT.x0 + DOT.x1) / 2, y: r.top + (DOT.y0 + DOT.y1) / 2 - fallY, s: Math.max(sz, cell * 2), cell, on: k >= .6 && r.top < innerHeight && r.bottom > 0 };
+    };
     const at = e => { const r = cv.getBoundingClientRect(); px = e.clientX - r.left; py = e.clientY - r.top; kick(); };
     cv.addEventListener('pointermove', at);
     cv.addEventListener('pointerdown', e => { at(e); if (e.pointerType !== 'mouse') setTimeout(() => { px = py = -1e4; kick(); }, 700); });
@@ -2343,7 +2358,7 @@
       const rel = scrollY - top, span = sec.offsetHeight - H || 1, p = rel / span;
       const live = p > -1.1 && p < 1.7;
       cv.style.display = live ? '' : 'none';
-      if (!live) { last = -9; return; }
+      if (!live) { last = -9; window.__giver = { on: false, burst: p > 0 ? 1 : 0 }; return; }
       if (Math.abs(p - last) < .0008) return;
       last = p;
       const pp = clamp(p);
@@ -2358,6 +2373,8 @@
       const X = u => ox + u * SC, Y = v => oy + v * SC;
       // hand-outs .05–.35 · charge .36–.62 (longer) · burst .62–.74 · fall from .72, fast enough to leave the screen before THE WORK settles
       const charge = clamp((pp - .36) / .26), burst = clamp((pp - .62) / .12), fall = Math.max(0, (p - .72) / .85);
+      { const gs = GIVER.s * SC, cx = X(GIVER.x) + gs / 2, cy = Y(GIVER.y) + gs / 2;   // tell the buddy square where the white block is
+        window.__giver = { x: cx, y: cy, s: gs, burst, core: (8 + 14 * charge) / GIVER.s, on: burst < .01 && cy > 0 && cy < VH }; }
       if (burst < .01) {
         const jit = charge * charge * 3.6 * SC;
         const J = () => (Math.random() - .5) * jit;
@@ -2380,9 +2397,11 @@
         }
         // giver (white) with the blue core inside
         const gx = X(GIVER.x) + J(), gy = Y(GIVER.y) + J();
-        g.fillStyle = '#f6f6f3'; g.fillRect(gx, gy, GIVER.s * SC, GIVER.s * SC);
-        const cs = (8 + 14 * charge) * SC;
-        g.fillStyle = '#4da3ff'; g.fillRect(gx + (GIVER.s * SC - cs) / 2, gy + (GIVER.s * SC - cs) / 2, cs, cs);
+        if (!window.__giverHide) {                                     // (hidden while the buddy square is away from it)
+          g.fillStyle = '#f6f6f3'; g.fillRect(gx, gy, GIVER.s * SC, GIVER.s * SC);
+          const cs = (8 + 14 * charge) * SC;
+          g.fillStyle = '#4da3ff'; g.fillRect(gx + (GIVER.s * SC - cs) / 2, gy + (GIVER.s * SC - cs) / 2, cs, cs);
+        }
         // four receivers + the blue squares tossed to them
         KS.forEach((k, i) => {
           const t = clamp((pp - (.05 + i * .055)) / .09), got = t >= 1;
@@ -2407,9 +2426,394 @@
       }
     };
     addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(draw); } }, { passive: true });
+    window.__gvRedraw = () => { last = -9; draw(); };
     addEventListener('resize', layout); addEventListener('load', layout); document.fonts?.ready.then(layout);
     layout();
   })();
+
+
+
+
+  /* ---------- THE BUDDY — "me": the white square next to PEE, now a 3D cube that comes along the whole way.
+                  It becomes every square the story has (the dot of I LOST., the little "me" block in each scene,
+                  the white block that gives, the dot of PROOF., the block that opens ABOUT) and floats at the side in between.
+                  Always a toy: grab it and throw it, click it, or swat it with a fast swipe — it bounces around and comes back. ---------- */
+  (() => {
+    if (reduce) return;
+    const sq = $('.wm .sq'), pst = $('#pst'), story = $('.pstory'), zw = pst && $('.zw', pst);
+    if (!sq) return;
+    const root = document.documentElement;
+    const b3 = document.createElement('div'); b3.className = 'b3'; b3.setAttribute('aria-hidden', 'true');
+    b3.innerHTML = '<i></i><i></i><i></i><i></i><i></i><i></i><b class="b3-ring"></b><b class="b3-hit"></b>';
+    document.body.appendChild(b3);
+    const hit = $('.b3-hit', b3);
+    const trail = Array.from({ length: 5 }, () => { const t = document.createElement('i'); t.className = 'b3-tr'; document.body.appendChild(t); return t; });
+    const EL = { hero: sq, lost: pst && $('.a-dot', pst), mdot: pst && $('.d-motto .m-dot', pst), better: pst && $('.c-better i', pst), opp: pst && $('.c-opp i', pst), grab: pst && $('.c-grab i', pst), dot: $('.cc-dot'), block: $('.px-block') };
+    const pxStage = $('.px-stage'), pxTxt = $('.px-stage .cc-txt'), work = $('#work');
+    const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const eio = t => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const PI = Math.PI, INK = [18, 18, 21], PAPER = [246, 246, 243], BLUE = [77, 163, 255];
+    const SILLY = ['boing', 'quack', 'squeak', 'honk', 'bloop', 'slide'];
+    const rgb = str => { const m = /rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)(?:[, /]+([\d.]+))?/.exec(str || ''); return m && (m[4] === undefined || +m[4] > .1) ? [+m[1], +m[2], +m[3]] : null; };
+    const inView = el => { if (!el) return null; const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < root.clientWidth ? r : null; };
+    const W = () => root.clientWidth, H = () => innerHeight;
+    let mx = -1e4, my = -1e4; addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; }, { passive: true });
+    // is the square's centre actually visible (inside its clipping box and on screen)?
+    const within = (el, box) => {
+      if (!el || !box) return false;
+      const r = el.getBoundingClientRect(), b = box.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      return x > Math.max(0, b.left) && x < Math.min(W(), b.right) && y > Math.max(0, b.top) && y < Math.min(H(), b.bottom);
+    };
+    // where each square is right now (centre, size, angle, colour)
+    const pose = name => {
+      const w = W(), h = H(), mob = w < 700;
+      if (name === 'park') {
+        const x = w - (mob ? 30 : 62), y = h * .52;
+        const light = $$('.panel').some(p => { const r = p.getBoundingClientRect(); return x > r.left && x < r.right && y > r.top && y < r.bottom; });
+        return { x, y: y + Math.sin(performance.now() / 700) * 6, s: mob ? 18 : 28, rz: 0, c: light ? INK : PAPER, core: 0 };
+      }
+      if (name === 'vx') {                                               // the "." — sits like one of the voxel blocks, and lifts + turns blue under your cursor like them
+        const v = window.__vxDot?.() || { x: w / 2, y: h / 2, s: 40, cell: 10 }, R = v.cell * 9, d = Math.hypot(v.x - mx, v.y - my), lift = d < R ? (1 - d / R) ** 1.5 * v.cell * 2.2 : 0;
+        return { x: v.x, y: v.y - lift, s: v.s, rz: 0, c: lift > v.cell * .18 ? BLUE : INK, core: 0 };
+      }
+      if (name === 'giver') { const g = window.__giver || {}; return { x: g.x || w / 2, y: g.y || h / 2, s: g.s || 40, rz: 0, c: PAPER, core: g.core || 0 }; }
+      const el = EL[name], r = el.getBoundingClientRect(), par = el.parentElement, pr = par.getBoundingClientRect();
+      const k = par.offsetWidth ? pr.width / par.offsetWidth : 1, cs = getComputedStyle(el);
+      let ang = 0, sc = 1;
+      if (cs.transform && cs.transform !== 'none') { const m = new DOMMatrixReadOnly(cs.transform); ang = Math.atan2(m.b, m.a) * 180 / PI; sc = Math.hypot(m.a, m.b); }
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, s: el.offsetWidth * k * sc, rz: ang, c: rgb(cs.backgroundColor) || PAPER, core: 0 };
+    };
+    // which square should it be right now?
+    const pick = () => {
+      const h = H(), y = scrollY;
+      if (root.classList.contains('intro-on') || root.classList.contains('case-open')) return 'hide';
+      if (y < h * .3) return sq.classList.contains('in') ? 'hero' : 'hide';
+      const sr = story && story.getBoundingClientRect();
+      if (sr && sr.top < h * .9 && sr.bottom > h) {
+        if ((pst.classList.contains('a0') || pst.classList.contains('a1')) && EL.lost) return 'lost';
+        if (sr.top <= 1) {
+          // leave the scene when something covers it: the circle opening out of BETTER, the zoom window out of "grabbed"
+          if (pst.classList.contains('sD') && !pst.classList.contains('hmr') && EL.mdot) return 'mdot~';   // one of the dots of FAIL FAST. LEARN FAST.
+          if (pst.classList.contains('sC') && EL.better) return pst.classList.contains('cd') ? 'better~' : 'better';
+          if (pst.classList.contains('sE') && pst.classList.contains('ef') && EL.grab) return 'grab';   // the page slides: hop over to the next scene
+          if (pst.classList.contains('sE') && EL.opp) return 'opp';
+          if (pst.classList.contains('sF') && EL.grab) return zw && zw.classList.contains('on') ? 'grab~' : 'grab';
+        }
+        return 'park';
+      }
+      const g = window.__giver; if (g && g.on) return 'giver';
+      if (EL.dot && pxTxt && +getComputedStyle(pxTxt).opacity > .6 && within(EL.dot, pxStage)) return 'dot';
+      if (EL.block && +(EL.block.style.opacity || 0) > .5 && inView(pxStage)) return within(EL.block, pxStage) ? 'block' : 'block~';
+      const vd = window.__vxDot?.(); if (vd && vd.on) return 'vx';          // the end: it becomes the "." of LET'S MAKE SOMETHING.
+      return 'park';
+    };
+    let mode = 'hide', tgt = 'hide', F = null, gone = false, raf = 0, lastT = 0, lastY = scrollY, sv = 0, played = false;
+    try { played = sessionStorage.getItem('pp-toy') === '1'; } catch (e) {}
+    const P = { x: 0, y: 0, s: 0, rx: 0, ry: 0, rz: 0, c: PAPER.slice(), core: 0, sq: 1, sqv: 0 };
+    let rdt = .016, lastRY = 0;
+    const off = { x: 0, y: 0, vx: 0, vy: 0, spin: 0 };
+    const toy = { vx: 0, vy: 0, rest: 0, t: 0, flash: 0 };
+    const ptr = { x: 0, y: 0, hist: [], down: null, gx: 0, gy: 0 };
+    // the real squares stay hidden while the cube is out — the cube *is* them
+    let anchorsHidden = null;
+    const hideAnchors = on => {
+      if (on === anchorsHidden) return; anchorsHidden = on;
+      for (const k in EL) if (k !== 'mdot') EL[k]?.classList.toggle('bud-hide', on);   // the FAIL FAST dot is always there
+      if (window.__giverHide !== on) { window.__giverHide = on; window.__gvRedraw?.(); }
+      if (window.__vxHide !== on) { window.__vxHide = on; window.__vxRedraw?.(); }
+    };
+    const showReal = name => { EL[name]?.classList.remove('bud-hide'); anchorsHidden = null; };
+    const snap = a => Math.round(a / 90) * 90;                  // a flat square looks the same every quarter turn
+    // on the white pages (ABOUT / CONTACT) it doesn't fly around — it warps: folds into a line, blinks out, unfolds at the new spot
+    const lightAt = (x, y) => $$('.panel').some(p => { const r = p.getBoundingClientRect(); return x > r.left && x < r.right && y > r.top && y < r.bottom; });
+    let WP = null;
+    const warp = to => {
+      WP = { t0: performance.now(), to, from: { ...P, c: P.c.slice() }, arrived: false };
+      mode = 'warp'; F = null;
+    };
+    const go = (prev, to) => {
+      const T = pose(to);
+      if (to === 'mdot') { mode = 'dock'; F = null; Object.assign(P, T); P.ry = snap(P.ry); P.sq = 1; P.sqv = 0; hist.length = 0; return; }   // FAIL FAST.: it simply is that dot, no jump
+      if (prev === 'block' || lightAt(P.x, P.y) || lightAt(T.x, T.y)) warp(to); else fly(to);
+    };
+    const fly = to => {
+      const T = pose(to), d = Math.hypot(T.x - P.x, T.y - P.y);
+      F = { t0: performance.now(), dur: clamp(d / 1.5 + 480, 560, 1050), from: { ...P, c: P.c.slice() }, to, ry1: snap(P.ry) + (T.x >= P.x ? 360 : -360) };
+      P.sqv += 6;                                                     // a little stretch on take-off
+      mode = 'fly';
+    };
+    const pulse = () => {
+      const d = document.createElement('i'); d.className = 'b3-pulse'; document.body.appendChild(d);
+      const s = Math.max(12, P.s);
+      d.style.cssText = `width:${s}px;height:${s}px;left:${P.x - s / 2}px;top:${P.y - s / 2}px;border-color:rgb(${P.c.map(Math.round).join(',')});transform:rotate(${P.rz}deg)`;
+      d.animate([{ transform: `rotate(${P.rz}deg) scale(1)`, opacity: .9 }, { transform: `rotate(${P.rz + 45}deg) scale(2.6)`, opacity: 0 }], { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)' }).finished.then(() => d.remove());
+    };
+    const hist = [];
+    const render = () => {
+      const s = Math.max(0, P.s), fl = toy.flash;
+      const c = fl > 0 ? P.c.map((v, i) => lerp(v, BLUE[i], fl)) : P.c;
+      b3.style.setProperty('--s', s.toFixed(1) + 'px');
+      b3.style.setProperty('--c', `rgb(${c.map(v => Math.round(v)).join(',')})`);
+      b3.style.setProperty('--core', P.core.toFixed(3));
+      const x = P.x + off.x, y = P.y + off.y;
+      // flat like every other square on the site: it rolls, squashes and stretches instead of tumbling in 3D
+      P.sqv += (-(P.sq - 1) * 420 - P.sqv * 16) * rdt; P.sq += P.sqv * rdt;
+      const vy = (y - lastRY) / Math.max(rdt, .001); lastRY = y;
+      const st = mode === 'dock' || mode === 'warp' ? 0 : clamp(Math.abs(vy) / 5000, 0, .22);
+      let sy = P.sq * (1 + st), sx = 1 / sy;
+      if (mode === 'warp') { sx = Math.max(.001, WP.sx); sy = WP.sy; }
+      b3.style.transform = `translate(${(x - s / 2).toFixed(1)}px, ${(y - s / 2).toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)}) rotate(${(P.rz + P.ry).toFixed(1)}deg)`;
+      // a short trail while it's moving fast
+      const moving = mode === 'fly' || mode === 'toy' || mode === 'drag';   // (no trail for a warp)
+      hist.unshift({ x, y, s, r: P.rz + P.ry, c }); hist.length = 12;
+      trail.forEach((t, i) => {
+        const q = hist[2 + i * 2];
+        if (!moving || !q) { t.style.opacity = 0; return; }
+        const z = q.s * (.8 - i * .12);
+        t.style.opacity = (.34 - i * .06).toFixed(2);
+        t.style.background = `rgb(${q.c.map(v => Math.round(v)).join(',')})`;
+        t.style.width = t.style.height = z.toFixed(1) + 'px';
+        t.style.transform = `translate(${(q.x - z / 2).toFixed(1)}px, ${(q.y - z / 2).toFixed(1)}px) rotate(${q.r.toFixed(0)}deg)`;
+      });
+      b3.classList.toggle('hint', tgt === 'hero' && mode === 'dock' && !played);
+    };
+    const startToy = (vx, vy) => {
+      mode = 'toy'; F = null; toy.vx = clamp(vx, -4200, 4200); toy.vy = clamp(vy, -4200, 4200); toy.rest = 0; toy.t = 0;
+      if (!played) { played = true; try { sessionStorage.setItem('pp-toy', '1'); } catch (e) {} }
+      kick();
+    };
+    const runToy = dt => {
+      const w = W(), h = H();
+      P.s = lerp(P.s, clamp(P.s, 26, 96), .15); P.core = lerp(P.core, 0, .1); P.c = P.c.map((v, i) => lerp(v, pose('park').c[i], .06));
+      toy.flash = Math.max(0, toy.flash - dt * 1.6);
+      if (mode === 'drag') {
+        const tx = ptr.x - ptr.gx, ty = ptr.y - ptr.gy, vx = (tx - P.x) / Math.max(dt, .001), vy = (ty - P.y) / Math.max(dt, .001);
+        P.x = tx; P.y = ty; P.ry += clamp(vx * .01, -15, 15);
+        return;
+      }
+      toy.t += dt;
+      const r = P.s / 2, floor = h - r - 10;
+      toy.vy += 2800 * dt;
+      P.x += toy.vx * dt; P.y += toy.vy * dt;
+      let bump = 0;
+      if (P.x < r) { P.x = r; bump = Math.abs(toy.vx); toy.vx = -toy.vx * .62; }
+      if (P.x > w - r) { P.x = w - r; bump = Math.abs(toy.vx); toy.vx = -toy.vx * .62; }
+      if (P.y < r) { P.y = r; bump = Math.abs(toy.vy); toy.vy = -toy.vy * .62; }
+      if (P.y > floor) {
+        P.y = floor;
+        if (toy.vy > 240) { bump = toy.vy; toy.vy = -toy.vy * .5; } else toy.vy = 0;
+        toy.vx *= Math.pow(.05, dt);
+      }
+      if (bump > 700) sound.play('clack');
+      if (bump > 300) P.sqv -= clamp(bump / 450, 0, 8);               // squash on every bounce
+      P.ry += toy.vx * dt * .25; P.rz = lerp(P.rz, 0, .05);
+      toy.rest = P.y >= floor - .5 && Math.abs(toy.vx) < 40 ? toy.rest + dt : 0;
+      if (toy.rest > .35 || toy.t > 7) { const w2 = tgt === 'hide' ? 'park' : tgt; go(null, w2); }   // done playing — back to where it belongs
+    };
+    const frame = now => {
+      raf = 0;
+      const dt = Math.min(.05, lastT ? (now - lastT) / 1000 : .016); lastT = now; rdt = dt;
+      sv = lerp(sv, (scrollY - lastY) / Math.max(dt, .001), .2); lastY = scrollY;
+      let want = pick(); const yieldIt = want.endsWith('~'); if (yieldIt) want = want.slice(0, -1);   // '~' = something covers that spot: let the real square show there
+      if (want === 'hide') {
+        if (mode !== 'hide') { mode = 'hide'; tgt = 'hide'; F = null; b3.style.opacity = 0; trail.forEach(t => (t.style.opacity = 0)); hideAnchors(false); }
+        lastT = 0; return;
+      }
+      hideAnchors(true);
+      if (mode === 'drag' || mode === 'toy') {
+        tgt = want; b3.style.opacity = 1; runToy(dt); render(); raf = requestAnimationFrame(frame); return;
+      }
+      // GIVE: when the white block bursts, the cube bursts with it … and re-forms when THE WORK comes in
+      if (gone) {
+        if (want === 'giver') { gone = false; mode = 'dock'; tgt = 'giver'; Object.assign(P, pose('giver')); }
+        else if (work && work.getBoundingClientRect().top < H() * .55) { gone = false; tgt = 'park'; Object.assign(P, pose('park'), { s: 0 }); fly('park'); }
+        else { b3.style.opacity = 0; trail.forEach(t => (t.style.opacity = 0)); lastT = 0; return; }
+      }
+      if (want !== tgt) {
+        const prev = tgt; tgt = want;
+        if (prev === 'giver' && (window.__giver?.burst || 0) > 0) { gone = true; mode = 'gone'; b3.style.opacity = 0; lastT = 0; return; }
+        if (mode === 'hide') {                                 // coming back from hidden
+          if (want !== 'park') { mode = 'dock'; Object.assign(P, pose(want)); P.ry = snap(P.ry); }
+          else { Object.assign(P, pose('park'), { s: 0 }); fly('park'); }
+        } else go(prev, want);
+      }
+      b3.style.opacity = 1;
+      off.vx += (-off.x * 32 - off.vx * 7) * dt; off.vy += (-off.y * 32 - off.vy * 7) * dt;
+      off.x += off.vx * dt; off.y += off.vy * dt; off.spin *= Math.pow(.25, dt);
+      toy.flash = Math.max(0, toy.flash - dt * 1.6);
+      if (mode === 'warp') {
+        const t = (now - WP.t0) / 440;
+        if (t < .36) { const u = t / .36; Object.assign(P, { x: WP.from.x, y: WP.from.y }); WP.sx = 1 - eio(u); WP.sy = 1 + .9 * u; b3.style.opacity = 1; }
+        else if (t < .5) { b3.style.opacity = 0; }
+        else {
+          const u = clamp((t - .5) / .5), T = pose(WP.to), back = 1 + 2.2 * (u - 1) ** 3 + 1.2 * (u - 1) ** 2;   // unfolds with a little overshoot
+          Object.assign(P, { x: T.x, y: T.y, s: T.s, rz: T.rz, c: T.c, core: T.core }); P.ry = snap(P.ry);
+          if (!WP.arrived) { WP.arrived = true; }
+          WP.sx = back; WP.sy = 1.9 - .9 * back; b3.style.opacity = 1;
+          if (u >= 1) { mode = WP.to === 'park' ? 'park' : 'dock'; P.sq = 1; P.sqv = 0; }
+        }
+        render(); raf = requestAnimationFrame(frame); return;
+      }
+      if (mode === 'fly') {
+        const t = clamp((now - F.t0) / F.dur), e = eio(t), T = pose(F.to), A = F.from, w = W(), h = H();
+        const lift = Math.min(w, h) * (.18 + .12 * clamp(Math.hypot(T.x - A.x, T.y - A.y) / w));
+        const mx = (A.x + T.x) / 2, my = Math.min(A.y, T.y) - lift, u = 1 - e;
+        P.x = u * u * A.x + 2 * u * e * mx + e * e * T.x;
+        P.y = u * u * A.y + 2 * u * e * my + e * e * T.y;
+        P.s = Math.min(lerp(A.s, T.s, e) * (1 + 1.3 * Math.sin(PI * e)), Math.min(w, h) * .3);
+        P.ry = lerp(A.ry, F.ry1, e); P.rz = lerp(A.rz, T.rz, e);
+        P.c = A.c.map((v, i) => lerp(v, T.c[i], e)); P.core = lerp(A.core || 0, T.core || 0, e);
+        if (t >= 1) { F = null; P.ry = snap(P.ry); P.sq = 1; P.sqv = 0; if (tgt === 'park') mode = 'park'; else { mode = 'dock'; hist.length = 0; } }   // it just becomes the dot — no flash
+      } else if (mode === 'dock' && yieldIt) {
+        // covered (a circle / the zoom window / the stage edge is in front): the real square takes over for now
+        const T = pose(tgt); Object.assign(P, { x: T.x, y: T.y, s: T.s, rz: T.rz, c: T.c, core: T.core });
+        b3.style.opacity = 0; trail.forEach(t => (t.style.opacity = 0)); showReal(tgt);
+        raf = requestAnimationFrame(frame); return;
+      } else if (mode === 'dock') {
+        const T = pose(tgt);
+        P.x = T.x; P.y = T.y; P.s = T.s; P.rz = T.rz; P.c = T.c; P.core = T.core;
+        P.ry = snap(P.ry); P.sq = 1; P.sqv = 0;
+      } else if (mode === 'park') {
+        const T = pose('park'), k = 1 - Math.pow(.02, dt);
+        P.x = lerp(P.x, T.x, k); P.y = lerp(P.y, T.y, k); P.s = lerp(P.s, T.s, k); P.rz = lerp(P.rz, 0, k); P.core = lerp(P.core, 0, k);
+        P.c = P.c.map((v, i) => lerp(v, T.c[i], k));
+        P.ry += dt * (clamp(sv, -3000, 3000) * .12 + off.spin);          // it rolls along as you scroll
+        if (Math.abs(sv) < 60 && off.spin < 30) P.ry = lerp(P.ry, snap(P.ry), 1 - Math.pow(.004, dt));   // … and settles flat when you stop
+      }
+      render();
+      raf = requestAnimationFrame(frame);
+    };
+    const kick = () => { if (!raf && !document.hidden) raf = requestAnimationFrame(frame); };
+    // ---- play with it ----
+    hit.addEventListener('pointerdown', e => {
+      if (mode === 'hide' || mode === 'gone') return;
+      e.preventDefault(); e.stopPropagation();
+      hit.setPointerCapture?.(e.pointerId);
+      ptr.x = e.clientX; ptr.y = e.clientY; ptr.gx = e.clientX - (P.x + off.x); ptr.gy = e.clientY - (P.y + off.y);
+      P.x += off.x; P.y += off.y; off.x = off.y = off.vx = off.vy = 0;
+      ptr.down = { x: e.clientX, y: e.clientY, t: performance.now() }; ptr.hist = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
+      mode = 'drag'; F = null; b3.classList.add('grab'); sound.play('pop');
+      if (!played) { played = true; try { sessionStorage.setItem('pp-toy', '1'); } catch (e2) {} }
+      kick();
+    });
+    hit.addEventListener('pointermove', e => {
+      if (mode !== 'drag') return;
+      ptr.x = e.clientX; ptr.y = e.clientY;
+      ptr.hist.push({ x: e.clientX, y: e.clientY, t: performance.now() }); if (ptr.hist.length > 8) ptr.hist.shift();
+    });
+    const release = e => {
+      if (mode !== 'drag') return;
+      b3.classList.remove('grab');
+      const now = performance.now(), d = ptr.down, moved = Math.hypot(e.clientX - d.x, e.clientY - d.y);
+      if (moved < 7 && now - d.t < 300) {                       // a click: it jumps and flips, with a silly sound
+        toy.flash = 1; sound.play(SILLY[(Math.random() * SILLY.length) | 0]);
+        startToy((Math.random() - .5) * 900, -1500 - Math.random() * 500);
+        return;
+      }
+      const h0 = ptr.hist.find(q => now - q.t < 90) || ptr.hist[0], dt = Math.max(16, now - h0.t) / 1000;
+      startToy((e.clientX - h0.x) / dt, (e.clientY - h0.y) / dt);
+    };
+    hit.addEventListener('pointerup', release);
+    hit.addEventListener('pointercancel', release);
+    // swat it: a fast swipe through the cube knocks it away
+    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      let lx = 0, ly = 0, lt = 0;
+      addEventListener('pointermove', e => {
+        const t = performance.now(), ddt = (t - lt) / 1000, vx = (e.clientX - lx) / Math.max(ddt, .001), vy = (e.clientY - ly) / Math.max(ddt, .001);
+        lx = e.clientX; ly = e.clientY; lt = t;
+        if (ddt > .1 || (mode !== 'park' && mode !== 'dock')) return;
+        const sp = Math.hypot(vx, vy), cx = P.x + off.x, cy = P.y + off.y;
+        if (sp > 1300 && Math.hypot(e.clientX - cx, e.clientY - cy) < Math.max(26, P.s * .75)) { sound.play('clack'); toy.flash = .6; startToy(vx * .7, vy * .7 - 400); }
+      }, { passive: true });
+    }
+    addEventListener('scroll', kick, { passive: true });
+    addEventListener('resize', kick);
+    addEventListener('pp-hit', e => { const d = e.detail || 1, w = W(), h = H(); if (mode === 'park') { off.vx -= w * 3.2 * d; off.vy -= h * 2.2 * d; off.spin += 1400 * d; } kick(); });
+    new MutationObserver(kick).observe(root, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(kick).observe(sq, { attributes: true, attributeFilter: ['class'] });
+    if (pst) new MutationObserver(kick).observe(pst, { attributes: true, attributeFilter: ['class'] });
+    document.addEventListener('visibilitychange', () => { lastT = 0; kick(); });
+    kick();
+  })();
+
+  // HOME: watch the intro again (no need to reload by hand)
+  $('.replay')?.addEventListener('click', () => {
+    try { sessionStorage.removeItem('pp-intro'); } catch (e) {}
+    scrollTo({ top: 0, behavior: 'instant' });
+    setTimeout(() => { location.href = location.pathname + location.search; }, 60);
+  });
+
+  /* ---------- PROOF scene: certificates fly in from deep space as THE WORK leaves, PROOF rises;
+                  on the way out the certificates collapse into one blue block that drops down and opens ABOUT ---------- */
+  (() => {
+    const pin = $('.px-pin'), st = $('.px-stage'); if (!pin || !st) return;
+    const flies = $$('.cc-fly', st), txt = $('.cc-txt', st), h = $('.cc-h', st), go = $('.cc-go', st), stack = $('.cc-stack', st), blk = $('.px-block', st);
+    const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+    const eo = t => 1 - Math.pow(1 - t, 3), eio = t => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    let tk = false, key = '';
+    const upd = () => {
+      tk = false;
+      const vh = innerHeight, r = pin.getBoundingClientRect();
+      if (r.top > vh * 1.3 || r.bottom < -vh * .3) return;
+      const span = pin.offsetHeight - vh || 1;
+      const inn = reduce ? 1 : clamp((vh - r.top) / (vh * 1.15));          // coming in (while THE WORK scrolls away)
+      const out = reduce ? 0 : clamp((-r.top / span - .42) / .58);           // leaving (last half of the pin)
+      const k = inn.toFixed(3) + out.toFixed(3); if (k === key) return; key = k;
+      // in: each certificate flies from far away (deep, low, spinning) into its place in the fan
+      flies.forEach((f, i) => {
+        const a = eo(clamp((inn * 1.35 - i * .1) / .85));
+        const g = eio(clamp((out * 1.6 - i * .06) / .7));                  // out: they gather to the middle and shrink away
+        const z = -1400 * (1 - a), y = (1 - a) * 42, rz = (1 - a) * (i % 2 ? 40 : -40) + g * (2 - i) * 4, x = (1 - a) * (i - 2) * 22;
+        f.style.transform = `translate3d(${(x - g * (i - 2) * 4).toFixed(1)}vw, ${y.toFixed(1)}vh, ${z.toFixed(0)}px) rotateZ(${rz.toFixed(1)}deg) scale(${(1 - g * .55).toFixed(3)})`;
+        f.style.opacity = (clamp(a * 1.6) * (1 - clamp((g - .55) / .3))).toFixed(3);
+      });
+      st.style.setProperty('--pr', (.5 * inn * (1 - out)).toFixed(3));
+      // PROOF rises in, then lifts away
+      const ti = eo(clamp((inn - .35) / .55));
+      txt.style.transform = `translateY(${((1 - ti) * 18 - eio(out) * 30).toFixed(2)}vh)`;
+      txt.style.opacity = (ti * (1 - clamp(out / .55))).toFixed(3);
+      if (h) h.style.letterSpacing = `${((1 - ti) * .25).toFixed(3)}em`;
+      // the blue block: born where the stack was, turns into a small square, then drops out the bottom
+      if (out > .3) {
+        const sr = stack.getBoundingClientRect(), pr = st.getBoundingClientRect();
+        const b = eio(clamp((out - .3) / .7)), s0 = sr.width * .5, s1 = Math.min(innerWidth, vh) * .09, sz = s0 + (s1 - s0) * clamp(b * 1.6);
+        const x0 = sr.left - pr.left + sr.width / 2, y0 = sr.top - pr.top + sr.height / 2, x1 = innerWidth / 2, y1 = vh * 1.04;
+        const bx = x0 + (x1 - x0) * clamp(b * 1.3), by = y0 + (y1 - y0) * b * b;
+        blk.style.width = blk.style.height = sz.toFixed(1) + 'px';
+        blk.style.transform = `translate(${(bx - sz / 2).toFixed(1)}px, ${(by - sz / 2).toFixed(1)}px) rotate(${(b * 180).toFixed(1)}deg)`;
+        blk.style.opacity = clamp((out - .3) / .12).toFixed(3);
+      } else blk.style.opacity = 0;
+    };
+    addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(upd); } }, { passive: true });
+    addEventListener('resize', () => { key = ''; upd(); });
+    upd();
+  })();
+
+  /* ---------- PROOF → ABOUT: a small blue block drops in under PROOF. and unfolds into the white About panel ---------- */
+  (() => {
+    const pn = $('#about .panel.unfold'); if (!pn) return;
+    let tk = false, last = -1;
+    const upd = () => {
+      tk = false;
+      const vh = innerHeight, r = pn.getBoundingClientRect();
+      if (r.top > vh * 1.2 || r.bottom < 0) return;
+      const k = reduce ? 1 : Math.max(0, Math.min(1, (vh * 1.0 - r.top) / (vh * .85)));
+      if (Math.abs(k - last) < .002) return; last = k;
+      const e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2, q = 1 - e;
+      if (k >= 1) { pn.style.clipPath = ''; pn.style.setProperty('--pk', 1); pn.style.setProperty('--po', 1); return; }
+      const W = r.width, H = r.height, s = Math.min(W, vh) * .09;            // starts as a ~square block, like PROOF's blue dot
+      const side = (W - s) / 2 * q, bottom = Math.max(0, H - s - (vh * .85 - s) * e) * q;
+      pn.style.clipPath = `inset(${(q * vh * .08).toFixed(1)}px ${side.toFixed(1)}px ${Math.max(0, bottom).toFixed(1)}px ${side.toFixed(1)}px round ${(q * 18).toFixed(1)}px)`;
+      pn.style.setProperty('--pk', Math.max(0, Math.min(1, (e - .15) / .45)).toFixed(3));
+      pn.style.setProperty('--po', Math.max(0, Math.min(1, (e - .55) / .4)).toFixed(3));
+    };
+    addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(upd); } }, { passive: true });
+    addEventListener('resize', () => { last = -1; upd(); });
+    upd();
+  })();
+
+
 
   /* certificates button: a little digital rain behind the fanned certificates */
   window.matrixRain?.($('.cc-rain'), { size: 16, fade: 'rgba(11,11,11,.12)', fps: innerWidth < 760 ? 14 : 20, color: '#2f7fd6', head: '#f6f6f3' });
