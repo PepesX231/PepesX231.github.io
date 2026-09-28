@@ -20,6 +20,15 @@
   });
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  // scroll-driven pieces update once per frame after a scroll. The travelling square runs them first,
+  // so it always lines up with where things are *this* frame (no one-frame lag while scrolling).
+  const PEND = new Set();
+  const scrollJob = fn => {
+    let q = false;
+    const run = () => { if (!q) return; q = false; PEND.delete(run); fn(); };
+    return () => { if (q) return; q = true; PEND.add(run); requestAnimationFrame(run); };
+  };
+  const flushJobs = () => { if (PEND.size) [...PEND].forEach(f => f()); };
 
   /* ---------- SOUND: tiny synthesized effects only (no music). On by default; browsers only let audio start after the
                   visitor's first click/tap/key, so we quietly unlock it then. Corner switch turns it off. ---------- */
@@ -1320,10 +1329,9 @@
     const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
     const ease = t => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
-    /* ---- typewriter: I SEE WHERE I STAND ---- */
-    const bt = $('.b-title', pst);
+    /* ---- typewriter: I SEE WHERE I STAND — the travelling square is the cursor while it types, then the full stop ---- */
+    const bt = $('.b-title', pst), twDot = $('.tw-dot', pst);
     const chars = [];
-    const caret = document.createElement('span'); caret.className = 'tw-caret'; caret.setAttribute('aria-hidden', 'true');
     (function split(node) {
       [...node.childNodes].forEach(n => {
         if (n.nodeType === 1) return split(n);
@@ -1336,21 +1344,354 @@
         n.replaceWith(f);
       });
     })(bt);
-    let twT = 0;
-    let typed = -1;
-    const typeSet = k => { if (k === typed) return; typed = k; chars.forEach((c, j) => c.classList.toggle('on', j < k)); (k ? chars[k - 1].after(caret) : bt.prepend(caret)); };
-    const typeStop = () => clearTimeout(twT);
-    const type = () => {
-      typeStop(); typeSet(0);
-      let k = 0;
-      const next = () => {
-        k++; typeSet(k); sound.play('tick', k * 4);
-        if (k >= chars.length) return;
-        const gap = chars[k - 1].nextSibling?.nodeType === 3 ? 150 : 0;
-        twT = setTimeout(next, 42 + Math.random() * 46 + gap);
+    let typed = -1, twK = 0, twD = 0;
+    const typeSet = k => { if (k === typed) return; typed = k; chars.forEach((c, j) => c.classList.toggle('on', j < k)); };
+    // where the cursor is: it slides over each letter as that letter is typed (smooth, not letter-by-letter jumps),
+    // and once STAND is done it shrinks into the full stop
+    window.__twPose = () => {
+      const n = chars.length, dr = twDot && twDot.getBoundingClientRect();
+      if (!n || !dr || !dr.width) return null;
+      const em = dr.width / .16, lr = chars[n - 1].getBoundingClientRect(), bo = dr.bottom - lr.top, cs = em * .52;
+      const at = m => {
+        if (m <= 0) { const r = chars[0].getBoundingClientRect(); return [r.left - em * .02, r.top + bo, chars[0]]; }
+        const c = chars[Math.min(n, m) - 1], r = c.getBoundingClientRect(); return [r.right + em * .05, r.top + bo, chars[Math.min(n - 1, m)]];
       };
-      twT = setTimeout(next, 300);
+      const k = clamp(twK, 0, n), j = Math.floor(k), f = k - j;
+      const A = at(j), B = j < n ? at(j + 1) : A;
+      const x = A[0] + (B[0] - A[0]) * f, y = A[1] + (B[1] - A[1]) * f;
+      const d = ease(clamp(twD));
+      const cx = x + cs / 2, cy = y - cs / 2, dx = dr.left + dr.width / 2, dy = dr.top + dr.height / 2;
+      return { x: cx + (dx - cx) * d, y: cy + (dy - cy) * d, s: cs + (dr.width - cs) * d, col: getComputedStyle(d > .5 ? twDot : A[2]).color };
     };
+
+    /* ---- the little scenes — the square is "me" in each one, and it all follows the scroll:
+            C  I GET IT BETTER: steps rise out of the floor, it climbs them one hop at a time, leaving a trail of itself
+            E  the opportunity: a blue square drifts down out of the dark, its light spills over the floor
+            F  grabbed: it crouches, leaps, catches the blue one (which ends up inside it) and lands ---- */
+    const put = (el, x, y, r = 0, sx = 1, sy = 1, o) => {                // x, y = the centre of the piece in scene units (400 × 180)
+      if (!el) return;
+      const w = el._w || (el._w = el.offsetWidth || 1), h = el._h || (el._h = el.offsetHeight || 1);
+      el.style.transform = `translate(${(x - w / 2).toFixed(2)}px,${(y - h / 2).toFixed(2)}px) scale(${sx.toFixed(3)},${sy.toFixed(3)}) rotate(${r.toFixed(2)}deg)`;
+      if (o !== undefined) el.style.opacity = clamp(o).toFixed(3);
+    };
+    // a square hopping from spot to spot (centres); T = [start, end] of each hop, all on the scroll.
+    // It crouches before each jump, stretches in the air, rolls a quarter turn and squashes when it lands.
+    const hopper = (P, T, arcs, air) => p => {
+      let i = 0; while (i < T.length && p >= T[i][1]) i++;
+      let x = P[i][0], y = P[i][1], r = 90 * i, sx = 1, sy = 1, lu = 1, up = 0;
+      if (i < T.length && p >= T[i][0]) {
+        const h = (p - T[i][0]) / (T[i][1] - T[i][0]), A = P[i], B = P[i + 1];
+        x = A[0] + (B[0] - A[0]) * h; y = A[1] + (B[1] - A[1]) * h - arcs[i] * Math.sin(Math.PI * h);
+        r = 90 * i + 90 * h * h * (3 - 2 * h); up = Math.sin(Math.PI * h);
+        sy = 1 + .12 * up; sx = 1 / sy;
+      } else {
+        if (i > 0 && !(air && air[i])) { lu = clamp((p - T[i - 1][1]) / .06); const k = (1 - lu) * (1 - lu); sy = 1 - .26 * k; sx = 1 + .2 * k; }
+        if (i < T.length && !(air && air[i])) { const c = clamp((p - (T[i][0] - .04)) / .04); if (c > 0) { const k = Math.sin(c * Math.PI / 2); sy = Math.min(sy, 1 - .22 * k); sx = Math.max(sx, 1 + .16 * k); } }
+        y += 20 * (1 - sy);                                                // squashed from the top: it stays on the ground
+      }
+      return { x, y, r, sx, sy, i, lu, up };
+    };
+    const scene = (k, fn) => { const el = $('.sc-' + k, pst); if (!el) return null; const q = s => $(s, el), qa = s => $$(s, el); return fn(el, q, qa); };
+    const sceneC = scene('c', (el, q) => {
+      // I GET IT BETTER — the square stands on top of its own mountain, above a sea of cloud… and across the valley
+      // there are mountains much higher than the one it climbed. The camera starts right behind it and cranes back and up.
+      const cv = q('canvas'), g = cv.getContext('2d'), me = q('.sc-me'), plus = q('.sc-plus'), cv2 = q('.mtn-cube'), g2 = cv2.getContext('2d');
+      plus.style.display = 'none';
+      let seed = 21; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const B = (x, z, cx, cz, sx, sz, h) => h * Math.exp(-(((x - cx) / sx) ** 2) - (((z - cz) / sz) ** 2));
+      // our mountain: a rocky top with a ridge running down towards you
+      const fgH = (x, z) => B(x, z, 0, 0, 24, 28, 58) + B(x, z, 2, -58, 20, 70, 44) + B(x, z, -40, 8, 24, 30, 32) + B(x, z, 42, 16, 22, 30, 28)
+        + B(x, z, -7, -9, 5, 5, 7) + B(x, z, 8, -17, 6, 6, 5) + B(x, z, 18, 4, 5, 5, 6)
+        + 3 * Math.sin(x * .41 + z * .13) + 2.2 * Math.cos(z * .37 - x * .2);
+      // the others: one big peak much higher than ours, and a range around it
+      const farH = (x, z) => B(x, z, -190, 560, 95, 90, 270) + B(x, z, -340, 640, 80, 80, 170) + B(x, z, 70, 650, 110, 90, 205)
+        + B(x, z, 330, 520, 90, 80, 135) + B(x, z, -420, 480, 90, 80, 120) + B(x, z, 60, 380, 70, 60, 70) + B(x, z, 520, 700, 120, 110, 180)
+        + B(x, z, -600, 720, 120, 110, 160) + 9 * Math.sin(x * .03) * Math.cos(z * .025);
+      const grid = (x0, x1, z0, z1, nx, nz, hf, jit) => {
+        const V = [], T = [];
+        for (let r = 0; r <= nz; r++) for (let c2 = 0; c2 <= nx; c2++) {
+          const x = x0 + (x1 - x0) * c2 / nx + (c2 % nx ? (rnd() - .5) * jit : 0), z = z0 + (z1 - z0) * r / nz + (r % nz ? (rnd() - .5) * jit : 0);
+          V.push([x, Math.max(0, hf(x, z) + (rnd() - .5) * jit * .7), z]);
+        }
+        for (let r = 0; r < nz; r++) for (let c2 = 0; c2 < nx; c2++) {
+          const a = r * (nx + 1) + c2, b = a + 1, d = a + nx + 1, e2 = d + 1;
+          if ((r + c2) % 2) T.push([a, b, e2], [a, e2, d]); else T.push([a, b, d], [b, e2, d]);
+        }
+        return { V, T };
+      };
+      const FG = grid(-90, 90, -150, 80, LITE ? 18 : 24, LITE ? 20 : 28, fgH, 4.5);
+      const FAR = grid(-950, 950, 240, 1050, LITE ? 26 : 38, LITE ? 13 : 19, farH, 18);
+      const top = FG.V.reduce((a, v) => (v[1] > a[1] && Math.abs(v[0]) < 20 && Math.abs(v[2]) < 20 ? v : a), [0, -1, 0]);
+      const CUBE = [top[0], top[1] - .45, top[2]], BIG = [-190, farH(-190, 560), 560];   // it stands on the highest point of its mountain
+      const L = (() => { const v = [.72, .55, .22], l = Math.hypot(...v); return v.map(a => a / l); })();   // the light: high, from the right
+      const CLOUD = 44;                                                       // the top of the cloud sea (our summit is ~70)
+      const CL = [];
+      for (let k2 = 0; k2 < (LITE ? 44 : 76); k2++) {
+        const far = k2 % 3 !== 0, z = far ? 120 + rnd() * 900 : -120 + rnd() * 230, x = (rnd() - .5) * (far ? 1900 : 260);
+        if (!far && Math.abs(x) < 18 && z > -30 && z < 30) continue;
+        CL.push([x, CLOUD - 6 - rnd() * 22 + (rnd() < .12 ? 30 : 0), z, far ? 60 + rnd() * 110 : 16 + rnd() * 26, .25 + rnd() * .4]);
+      }
+      CL.sort((a, b) => b[2] - a[2]);
+      const stars = Array.from({ length: 90 }, () => [rnd(), rnd() * .5, rnd() < .12 ? 2 : 1, rnd()]);
+      const mix = (a, b, t) => a + (b - a) * t;
+      const shade = (lam, snow, fog, sub, hazeC, cloudC) => {                   // rock → snow, lit ↔ shadow, then haze and cloud
+        let r = mix(11, 82, lam), gg = mix(13, 94, lam), b = mix(21, 126, lam);
+        r = mix(r, mix(78, 240, lam), snow); gg = mix(gg, mix(92, 246, lam), snow); b = mix(b, mix(130, 255, lam), snow);
+        r = mix(r, hazeC[0], fog); gg = mix(gg, hazeC[1], fog); b = mix(b, hazeC[2], fog);
+        r = mix(r, cloudC[0], sub); gg = mix(gg, cloudC[1], sub); b = mix(b, cloudC[2], sub);
+        return `rgb(${r | 0},${gg | 0},${b | 0})`;
+      };
+      // one soft cloud, drawn once (two tints: in shadow / facing the light), then stamped many times
+      const puff = tint => { const o = document.createElement('canvas'); o.width = o.height = 128; const x = o.getContext('2d'), cg = x.createRadialGradient(64, 56, 0, 64, 64, 64);
+        cg.addColorStop(0, `rgba(${tint},.8)`); cg.addColorStop(.5, `rgba(${tint},.36)`); cg.addColorStop(1, `rgba(${tint},0)`); x.fillStyle = cg; x.fillRect(0, 0, 128, 128); return o; };
+      const PUFS = ['150,166,196', '186,199,224', '222,232,248'].map(puff);   // in shadow → facing the light
+      const LIST = [];
+      // the shading never changes (the light doesn't move): bake each facet's colour at a few haze levels once
+      const FOGN = 8;
+      let BFG = null, BFAR = null;
+      const bake = (M, snowAt, far) => M.T.map(t => {
+        const va = M.V[t[0]], vb = M.V[t[1]], vc = M.V[t[2]];
+        const ux = vb[0] - va[0], uy = vb[1] - va[1], uz = vb[2] - va[2], wx = vc[0] - va[0], wy = vc[1] - va[1], wz = vc[2] - va[2];
+        let nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx; const nl = Math.hypot(nx, ny, nz) || 1; if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; }
+        const lam = clamp((nx * L[0] + ny * L[1] + nz * L[2]) / nl * .8 + Math.max(0, (-nx * .45 + ny * .5 - nz * .75) / nl) * .22 + .08);
+        const cy = (va[1] + vb[1] + vc[1]) / 3, snow = snowAt ? clamp((cy - snowAt) / 40) * clamp(.4 + ny / nl) : 0, sub = far ? 0 : clamp((CLOUD + 4 - cy) / 22) * .9;
+        const cols = []; for (let k2 = 0; k2 <= FOGN; k2++) cols.push(shade(lam, snow, k2 / FOGN * (far ? .85 : .4), sub, [44, 60, 88], [122, 140, 170]));
+        return { t, cols, top: Math.max(va[1], vb[1], vc[1]), ln: far ? 0 : .1 * (1 - sub) };
+      });
+      let W2 = 0, H2 = 0, last = '', cubeOn = true, CB = null;
+      const CBW = 300, CBH = 240;                                             // the block's own little canvas, moved to wherever it is
+      const size = () => { const r = el.getBoundingClientRect(), d = LITE ? .5 : r.width > 1100 ? .5 : r.width > 700 ? .66 : .9, d2 = DPR(1.5);
+        W2 = r.width; H2 = r.height; cv.width = Math.round(W2 * d); cv.height = Math.round(H2 * d); cv._d = d; cv2.width = Math.round(CBW * d2); cv2.height = Math.round(CBH * d2); cv2._d = d2; CB = null; last = ''; };
+      addEventListener('resize', size);
+      // the block: a soft white 3D cube with rounded edges, lit from the right like the mountains, its shadow on the rock
+      const drawCube = (proj, f, cam, pos, CR) => {
+        const d2 = cv2._d; g2.setTransform(1, 0, 0, 1, 0, 0); g2.clearRect(0, 0, cv2.width, cv2.height);
+        const cc = proj([pos[0], pos[1] + 1, pos[2]]), ox = Math.round(cc[0] - CBW / 2), oy = Math.round(cc[1] - CBH * .55);
+        cv2.style.transform = `translate(${ox}px,${oy}px)`;
+        g2.setTransform(d2, 0, 0, d2, -ox * d2, -oy * d2);
+        const zc = proj([pos[0], pos[1] + 1, pos[2]])[2], side = Math.max(1.7, 26 * zc / f), h = side / 2;
+        const ca = Math.cos(CR), sa = Math.sin(CR);
+        const P = (x, y, z) => proj([pos[0] + x * ca - z * sa, pos[1] + y, pos[2] + x * sa + z * ca]);
+        const C = [[-h, 0, -h], [h, 0, -h], [h, 0, h], [-h, 0, h], [-h, side, -h], [h, side, -h], [h, side, h], [-h, side, h]].map(v => P(...v));
+        if (C.some(p => p[2] < .5)) return;
+        const F = [[4, 5, 6, 7, [0, 1, 0]], [0, 1, 5, 4, [0, 0, -1]], [1, 2, 6, 5, [1, 0, 0]], [2, 3, 7, 6, [0, 0, 1]], [3, 0, 4, 7, [-1, 0, 0]]];
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; C.forEach(p => { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); });
+        const px = x1 - x0;
+        cv2.style.visibility = cubeOn ? '' : 'hidden';
+        if (!cubeOn) return [(x0 + x1) / 2, (y0 + y1) / 2, px];              // the travelling square is it right now
+        // soft shadow on the rock, thrown away from the light
+        const sx = (x0 + x1) / 2 - px * .35, sy = y1 - px * .05, sr = px * 1.1;
+        const sg = g2.createRadialGradient(sx, sy, 0, sx, sy, sr); sg.addColorStop(0, 'rgba(5,8,16,.55)'); sg.addColorStop(1, 'rgba(5,8,16,0)');
+        g2.save(); g2.translate(sx, sy); g2.scale(1, .32); g2.fillStyle = sg; g2.fillRect(-sr, -sr, sr * 2, sr * 2); g2.restore();
+        const lw = Math.max(1.5, px * .09);
+        g2.lineJoin = 'round';
+        for (const [a, b, c2, e, n] of F) {
+          const wn = [n[0] * ca - n[2] * sa, n[1], n[0] * sa + n[2] * ca];
+          const fc = [pos[0] + wn[0] * h, pos[1] + h + wn[1] * h, pos[2] + wn[2] * h];
+          if (wn[0] * (cam[0] - fc[0]) + wn[1] * (cam[1] - fc[1]) + wn[2] * (cam[2] - fc[2]) <= 0) continue;   // facing away
+          const lam = clamp(wn[0] * L[0] + wn[1] * L[1] + wn[2] * L[2]), amb = n[1] ? 1 : Math.min(1, .6 + .75 * lam);
+          const r = 250 * amb + (1 - amb) * 70, gg = 250 * amb + (1 - amb) * 92, bb = 247 * amb + (1 - amb) * 150;   // shade goes cool blue, like the snow
+          const col = `rgb(${r | 0},${gg | 0},${bb | 0})`, Q = [C[a], C[b], C[c2], C[e]];
+          g2.beginPath(); g2.moveTo(Q[0][0], Q[0][1]); for (let i = 1; i < 4; i++) g2.lineTo(Q[i][0], Q[i][1]); g2.closePath();
+          const lg = g2.createLinearGradient(Q[0][0], Q[0][1], Q[2][0], Q[2][1]);          // a soft sheen across each face
+          lg.addColorStop(0, col); lg.addColorStop(1, `rgb(${r * .9 | 0},${gg * .92 | 0},${bb * .96 | 0})`);
+          g2.fillStyle = lg; g2.strokeStyle = col; g2.lineWidth = lw; g2.stroke(); g2.fill();
+        }
+        // a thin bright rim where the top meets the lit side (the bevel catching the light)
+        g2.strokeStyle = 'rgba(255,255,255,.85)'; g2.lineWidth = Math.max(1, px * .025); g2.lineCap = 'round';
+        g2.beginPath(); [4, 5, 6, 7, 4].forEach((i, j) => (j ? g2.lineTo(C[i][0], C[i][1]) : g2.moveTo(C[i][0], C[i][1]))); g2.stroke();
+        const pad = lw + 4;
+        CB = [Math.min(x0, sx - sr) - pad, y0 - pad, Math.max(x1, sx + sr) - Math.min(x0, sx - sr) + pad * 2, Math.max(y1, sy + sr * .32) - y0 + pad * 2];
+        return [(x0 + x1) / 2, (y0 + y1) / 2, px];
+      };
+      let tR = 0, tC = 0, cR = -1, cC = 0, raf = 0, lt = 0;
+      const draw = (rise, c) => {
+        if (!W2) size();
+        const key = rise.toFixed(4) + c.toFixed(4) + cubeOn; if (key === last) return; last = key;
+        if (!BFG) { BFG = bake(FG, 0, false); BFAR = bake(FAR, 130, true); }
+        const d = cv._d, hr = .35 + .65 * ease(clamp(rise)), k = ease(clamp(c / .9)), mob = W2 < 700;
+        // camera: just behind the square → craned back and up so its whole ridge shows below it
+        const cam = [CUBE[0] + mix(6, 22, k), CUBE[1] + mix(5, 16, k), CUBE[2] + mix(-20, -115, k)];
+        const bigT = [BIG[0], BIG[1] * hr, BIG[2]];
+        const aimX = mix(CUBE[0], bigT[0], mob ? .42 : .14), aimZ = mix(CUBE[2], bigT[2], mob ? .42 : .14);
+        const yaw = Math.atan2(aimX - cam[0], aimZ - cam[2]) + mix(.02, -.05, k), cy2 = Math.cos(yaw), sy2 = Math.sin(yaw);
+        const ang = p => { const x = p[0] - cam[0], y = p[1] - cam[1], z = p[2] - cam[2]; return Math.atan2(y, x * sy2 + z * cy2); };
+        const Yc = H2 * mix(.56, .6, k), tc = ang(CUBE), ts = ang(bigT);
+        let f = Math.min(W2, H2 * 1.35) * mix(1.2, .95, k), pitch = 0, cp = 1, sp = 0;
+        const proj = p => {
+          const x = p[0] - cam[0], y = p[1] - cam[1], z = p[2] - cam[2];
+          const x1 = x * cy2 - z * sy2, z1 = x * sy2 + z * cy2, y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
+          return [W2 / 2 + f * x1 / z2, H2 / 2 - f * y2 / z2, z2];
+        };
+        for (let it = 0; it < 16; it++) {                                        // keep the square above the words and the big peak in frame
+          pitch = tc - Math.atan((H2 / 2 - Yc) / f); cp = Math.cos(pitch); sp = Math.sin(pitch);
+          const b = proj(bigT);
+          if (b[1] >= H2 * .1 && b[0] >= W2 * .06 && b[0] <= W2 * .94) break;
+          f *= .92;
+        }
+        g.setTransform(d, 0, 0, d, 0, 0);
+        const haze = [44, 60, 88], cloudC = [122, 140, 170];
+        // sky: deep blue up top, hazy near the horizon, a low sun-glow up to the right
+        const hz = proj([cam[0] + sy2 * 5000, cam[1], cam[2] + cy2 * 5000])[1];
+        const seaNear = proj([cam[0] + sy2 * 40, CLOUD, cam[2] + cy2 * 40])[1], seaFar = proj([cam[0] + sy2 * 1400, CLOUD, cam[2] + cy2 * 1400])[1];
+        const seaTop = clamp(Math.min(seaFar, seaNear) - 2, 0, H2);
+        let gr = g.createLinearGradient(0, 0, 0, Math.max(10, hz));
+        gr.addColorStop(0, '#060911'); gr.addColorStop(.55, '#0e1729'); gr.addColorStop(1, '#2a3a57');
+        g.fillStyle = gr; g.fillRect(0, 0, W2, Math.min(H2, seaTop + 2));
+        stars.forEach(s2 => { const y = s2[1] * hz; if (y > hz * .75) return; g.fillStyle = `rgba(246,246,243,${((.1 + .45 * s2[3]) * (1 - y / hz)).toFixed(2)})`; g.fillRect(s2[0] * W2, y, s2[2], s2[2]); });
+        const sx = W2 * (mob ? .92 : .84), sy = Math.max(H2 * .08, hz - H2 * .24);
+        const SR = Math.max(W2, H2) * .62;
+        gr = g.createRadialGradient(sx, sy, 0, sx, sy, SR);
+        gr.addColorStop(0, 'rgba(240,247,255,.85)'); gr.addColorStop(.05, 'rgba(200,225,255,.55)'); gr.addColorStop(.18, 'rgba(120,175,255,.22)'); gr.addColorStop(.6, 'rgba(77,163,255,.06)'); gr.addColorStop(1, 'rgba(77,163,255,0)');
+        g.fillStyle = gr; g.fillRect(Math.max(0, sx - SR), Math.max(0, sy - SR), Math.min(W2, sx + SR) - Math.max(0, sx - SR), Math.min(H2, sy + SR) - Math.max(0, sy - SR));
+        // the faces of the mountains (back to front)
+        const facets = (M, BK, hf, far) => {
+          const P2 = M.V.map(v => proj([v[0], v[1] * hf, v[2]]));
+          LIST.length = 0;
+          for (const b of BK) {
+            const t = b.t, a = P2[t[0]], p1 = P2[t[1]], e3 = P2[t[2]];
+            if (a[2] < 1 || p1[2] < 1 || e3[2] < 1) continue;
+            if (far && b.top * hf < CLOUD - 2) continue;                        // under the cloud sea: never seen
+            if (Math.max(a[0], p1[0], e3[0]) < 0 || Math.min(a[0], p1[0], e3[0]) > W2 || Math.max(a[1], p1[1], e3[1]) < 0 || Math.min(a[1], p1[1], e3[1]) > H2) continue;
+            const z = (a[2] + p1[2] + e3[2]) / 3, fog = far ? clamp((z - 250) / 900) : clamp((z - 60) / 260);
+            LIST.push([a, p1, e3, z, b.cols[Math.round(fog * FOGN)], b.ln]);
+          }
+          LIST.sort((p, q2) => q2[3] - p[3]);
+          g.lineWidth = .6;
+          for (const [a, p1, e3, , col, ln] of LIST) {
+            g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(p1[0], p1[1]); g.lineTo(e3[0], e3[1]); g.closePath(); g.fill();
+            if (ln) { g.strokeStyle = col; g.stroke(); }                        // (same colour: just closes the hairline seams)
+          }
+        };
+        g.save(); g.beginPath(); g.rect(0, 0, W2, seaTop + H2 * .03); g.clip();
+        facets(FAR, BFAR, hr, true);
+        g.restore();
+        // the cloud sea itself: a soft plane at cloud height from the horizon to right below you
+        { const top = seaTop, bot = Math.min(H2, Math.max(seaNear, seaFar));
+          if (bot > top) {
+            const sg = g.createLinearGradient(0, top - H2 * .03, 0, bot);
+            sg.addColorStop(0, 'rgba(96,114,146,0)'); sg.addColorStop(.06, 'rgba(104,122,154,.9)'); sg.addColorStop(.3, 'rgba(78,93,122,.97)'); sg.addColorStop(1, 'rgba(40,49,68,.98)');
+            g.fillStyle = sg; g.fillRect(0, top - H2 * .03, W2, H2 - top + H2 * .03);
+            const LR = W2 * .7, lg = g.createRadialGradient(sx, top, 0, sx, top, LR);                 // the light glancing off it
+            lg.addColorStop(0, 'rgba(225,238,255,.35)'); lg.addColorStop(1, 'rgba(225,238,255,0)');
+            g.fillStyle = lg; g.fillRect(Math.max(0, sx - LR), top, Math.min(W2, sx + LR) - Math.max(0, sx - LR), Math.min(H2 - top, LR));
+          } }
+        // the far rim of the cloud sea
+        gr = g.createLinearGradient(0, hz - H2 * .06, 0, hz + H2 * .12);
+        gr.addColorStop(0, 'rgba(122,140,170,0)'); gr.addColorStop(.5, 'rgba(122,140,170,.35)'); gr.addColorStop(1, 'rgba(90,106,135,.2)');
+        g.fillStyle = gr; g.fillRect(0, hz - H2 * .06, W2, H2 * .18);
+        const cloud = ([x, y, z, r, a]) => {
+          const p = proj([x + c * 40, y, z]); if (p[2] < 6) return;
+          const rr = Math.min(W2 * .42, f * r / p[2]); if (rr < 3 || a < .05 || p[0] + rr < 0 || p[0] - rr > W2 || p[1] - rr * .4 > H2 || p[1] + rr * .4 < 0) return;
+          const lit = clamp((p[0] - W2 * .2) / W2);                          // brighter towards the light
+          g.globalAlpha = a; g.drawImage(PUFS[Math.round(lit * 2)], p[0] - rr, p[1] - rr * .32, rr * 2, rr * .64);
+          g.globalAlpha = 1;
+        };
+        CL.forEach(cl => { if (cl[2] > 70) cloud(cl); });
+        facets(FG, BFG, 1, false);
+        CL.forEach(cl => { if (cl[2] <= 70) cloud(cl); });                     // mist curling round our ridge, in front of it
+        // the block on the top of its mountain, looking across at the higher ones
+        const m = proj(CUBE), ms = clamp(f * 1.7 / m[2], 16, 90);
+        // it arrives face-on (just like the flat square that flew in) and turns to show that it's a block
+        const cb = drawCube(proj, f, cam, CUBE, ease(clamp(c / .22)));
+        const cx = cb ? cb[0] : m[0], cy = cb ? cb[1] : m[1] - ms / 2, cs = cb ? cb[2] * .8 : ms;
+        put(me, cx, cy, 0, cs / 40, cs / 40);                                 // (invisible: tells the travelling square where the block is)
+        me._st = { r: 0, sx: 1, sy: 1, s: cs, core: 0 };
+      };
+      // follow the scroll smoothly: the camera glides to where the scroll says, instead of jumping with each wheel notch
+      const tick = now => {
+        raf = 0;
+        const dt = lt ? Math.min(.05, (now - lt) / 1000) : .016; lt = now;
+        const k = 1 - Math.exp(-dt * 8);
+        cR += (tR - cR) * k; cC += (tC - cC) * k;
+        if (Math.abs(tR - cR) < 2e-4 && Math.abs(tC - cC) < 2e-4) { cR = tR; cC = tC; }
+        draw(cR, cC);
+        if (cR !== tR || cC !== tC) raf = requestAnimationFrame(tick); else lt = 0;
+      };
+      window.__mtnCube = on => { if (cubeOn !== on) { cubeOn = on; last = ''; draw(cR, cC); } };
+      return (rise, c) => {
+        tR = rise; tC = c;
+        if (cR < 0 || Math.abs(tC - cC) > .5) { cR = tR; cC = tC; draw(cR, cC); return; }   // first time / a big jump: no glide
+        if (!raf) raf = requestAnimationFrame(tick);
+      };
+    });
+    const OPX = 270, OPY = 62;                                              // where the opportunity waits (same spot in E and F)
+    const sceneE = scene('e', (el, q, qa) => {
+      const me = q('.sc-me'), op = q('.sc-op'), tail = qa('.sc-tail b'), pool = q('.sc-pool'), shd = q('.sc-shd:not(.sc-oshd)'), oshd = q('.sc-oshd'), glow = q('.sc-glow');
+      const path = t => { const u = 1 - t; return [u * u * 500 + 2 * u * t * 430 + t * t * OPX, u * u * -150 + 2 * u * t * 30 + t * t * OPY]; };
+      let last = -1;
+      return (o, cr = 0) => {
+        if (Math.abs(o - last) + Math.abs(cr - (el._cr || 0)) < .0004) return; last = o; el._cr = cr;
+        const e = 1 - Math.pow(1 - o, 3), [x, y] = path(e), sp = (1 - e) * 600, sz = .55 + .45 * e;
+        put(op, x, y, sp, sz, sz, clamp(o * 5));
+        tail.forEach((b, j) => { const t = Math.max(0, e - (j + 1) * .05), [tx, ty] = path(t), k = 1 - j / tail.length; put(b, tx, ty, (1 - t) * 600, k, k, clamp(o * 5) * clamp((1 - e) * 2.2) * .75 * k); });
+        pool.style.opacity = (e * e * .95).toFixed(3); pool.style.transform = `translate(${(x - 130).toFixed(1)}px,0) scaleX(${(.45 + .55 * e).toFixed(3)})`;
+        put(oshd, x, 150, 0, .4 + .6 * e, 1, e * .8);
+        // me: it notices — a little hop as the blue one arrives, then it stands facing it
+        const h = clamp((o - .78) / .2), up = Math.sin(h * Math.PI), pre = clamp((o - .72) / .06) * (1 - h);
+        const ck = Math.sin(Math.min(1, cr) * Math.PI / 2);                // crouching, about to jump to the next page
+        const sy = Math.min(1 - .16 * Math.sin(pre * Math.PI / 2) + .08 * up, 1 - .24 * ck), sx = 1 / sy;
+        put(me, 150, 130 + 20 * (1 - Math.min(1, sy)) - 12 * up, 0, sx, sy);
+        me._st = { r: 0, sx, sy, core: 0 };
+        put(shd, 150, 150, 0, 1 - .35 * up, 1, .9 - .4 * up);
+        put(glow, x, y + 30, 0, 1, 1, clamp((.1 + .9 * e)));
+      };
+    });
+    const sceneF = scene('f', (el, q, qa) => {
+      const me = q('.sc-me'), op = q('.sc-op'), pool = q('.sc-pool'), shd = q('.sc-shd:not(.sc-oshd)'), oshd = q('.sc-oshd'), glow = q('.sc-glow');
+      const rings = qa('.sc-ring'), du = qa('.sc-dust b'), dotsEl = q('.sc-dots');
+      const P = [[150, 130], [OPX, OPY], [322, 130]], T = [[.16, .5], [.5, .78]];
+      const hop = hopper(P, T, [44, 12], [0, 1]);
+      // the jump it's about to make, dotted out first (the dots go as it flies over them)
+      const ND = 13, dots = Array.from({ length: ND }, () => dotsEl.appendChild(document.createElement('b')));
+      let last = -1;
+      return f => {
+        if (Math.abs(f - last) < .0004) return; last = f;
+        const m = hop(f), got = clamp((f - .46) / .06);                      // .46–.52: pulled into the square
+        const ld = clamp(f / .08);                                            // just landed from the jump across
+        if (ld < 1) { const k = (1 - ld) * (1 - ld); m.sy = Math.min(m.sy, 1 - .26 * k); m.sx = 1 / m.sy; m.y = P[0][1] + 20 * (1 - m.sy); }
+        const core = .42 * ease(clamp((f - .48) / .08));
+        put(me, m.x, m.y, m.r, m.sx, m.sy);
+        me._st = { r: m.r, sx: m.sx, sy: m.sy, core };
+        const ox = OPX + (m.x - OPX) * got, oy = OPY + (m.y - OPY) * got, os = 1 - got * .75;
+        put(op, ox, oy, got * 90, os, os, 1 - clamp((got - .7) / .3));
+        pool.style.opacity = (.95 * (1 - got)).toFixed(3); pool.style.transform = `translate(${(OPX - 130).toFixed(1)}px,0)`;
+        put(oshd, OPX, 150, 0, 1, 1, .8 * (1 - got));
+        const air = m.up || (f > T[0][0] && f < T[1][1] ? 1 : 0);
+        put(shd, m.x, 150, 0, 1 - .5 * air, 1, .9 - .6 * air);
+        const rv = clamp(f / .13), fl = clamp((f - T[0][0]) / (T[0][1] - T[0][0]));
+        dots.forEach((d, k) => {
+          const h = (k + 1) / (ND + 1), o = clamp((rv - k / ND) * 5) * (fl > h - .02 ? 0 : 1);
+          put(d, P[0][0] + (OPX - P[0][0]) * h, P[0][1] + (OPY - P[0][1]) * h - 44 * Math.sin(Math.PI * h), 0, 1, 1, o * .9);
+        });
+        // the catch: a blue flash-square opens out of it · the landing: a white ring on the floor + dust
+        const u1 = clamp((f - .5) / .18), u2 = clamp((f - T[1][1]) / .16);
+        put(rings[0], OPX, OPY, 45 * u1, 1 + 2.4 * ease(u1), 1 + 2.4 * ease(u1), u1 > 0 && u1 < 1 ? (1 - u1) * .9 : 0);
+        put(rings[1], P[2][0], 150, 0, 1 + 3.2 * ease(u2), (1 + 3.2 * ease(u2)) * .16, u2 > 0 && u2 < 1 ? (1 - u2) * .8 : 0);
+        du.forEach((d, j) => {
+          if (ld < 1 && f > 0) { const sd = j % 2 ? 1 : -1, far = 1 + (j >> 1) * .45; put(d, P[0][0] + sd * (20 + ld * 22 * far), 147 - Math.sin(ld * Math.PI) * 10 * far, ld * 200, 1, 1, (1 - ld) * .85); return; }
+          if (u2 <= 0 || u2 >= 1) { d.style.opacity = 0; return; }
+          const sd = j % 2 ? 1 : -1, far = 1 + (j >> 1) * .45;
+          put(d, P[2][0] + sd * (20 + u2 * 26 * far), 147 - Math.sin(u2 * Math.PI) * 12 * far, u2 * 200, 1, 1, (1 - u2) * .9);
+        });
+        put(glow, ox, oy + 30, 0, 1, 1, clamp((.9 - .5 * got + .6 * core)));
+      };
+    });
+
+    /* ---- FAIL FAST. LEARN FAST. — the words stay still; the world around them moves:
+            as the circle opens you push in through it (the page settles from a little too close), a field of small
+            squares behind the words lights up from the middle out, and a blue light swells behind LEARN ---- */
+    const dBg = document.createElement('i'); dBg.className = 'd-bg'; dBg.setAttribute('aria-hidden', 'true');
+    let mLast = -9;
+    function mottoIn(t) {                                   // t: 0 = the circle starts to open … 2 = the end of that page, 9 = done
+      if (!dBg.isConnected) $('.ly-d', pst).prepend(dBg);
+      if (Math.abs(t - mLast) < .0005) return; mLast = t;
+      if (t < 0 || t > 8) { motto.style.removeProperty('scale'); pst.style.setProperty('--dg', t > 8 ? 1 : 0); pst.style.setProperty('--dz', t > 8 ? 1 : 0); return; }
+      const z = ease(clamp(t / 1.1));
+      motto.style.scale = (1.14 - .14 * z).toFixed(4);
+      pst.style.setProperty('--dz', z.toFixed(3));                      // the square field
+      pst.style.setProperty('--dg', ease(clamp((t - .5) / .9)).toFixed(3));   // the light
+    }
 
     /* ---- FAIL FAST. LEARN FAST. slides up, crashes and shatters → then the opportunity page ---- */
     const motto = $('.d-motto .motto-type', pst), mChars = [];
@@ -1389,7 +1730,6 @@
         pst.classList.add('dcut'); pst.classList.remove('shatter'); void pst.offsetWidth;
         requestAnimationFrame(() => {
           shA.forEach(a => a.cancel()); shA = []; pst.classList.remove('dcut');
-          $$('.cube', lay('E')).forEach(c => { c.classList.remove('on'); void c.offsetWidth; c.classList.add('on'); });
         });
       }, 1450));
     }
@@ -1441,7 +1781,7 @@
       return { P, gap, Wc, Hc };
     }
     function vapor(t) {                                     // t: 0 = the words, 1 = gone
-      const on = t >= 0 && t < 1 && !reduce;
+      const on = t >= 0 && t < 1.12 && !reduce;
       pst.classList.toggle('fxv', on);
       if (!on) { if (vLast !== -1) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cv.width, cv.height); vLast = -1; } return; }
       if (!VP) VP = sampleText();
@@ -1568,9 +1908,9 @@
     /* ---- the circle opens from where the BETTER block landed, following the scroll (a real filled circle, no outline) ---- */
     const dLay = lay('D');
     const landing = () => {
-      const pr = pst.getBoundingClientRect(), st = $('.c-better .step', pst)?.getBoundingClientRect();
-      if (!st || !st.width) return { x: pr.width / 2, y: pr.height / 2, pr };
-      return { x: st.left + st.width / 2 - 3 - pr.left, y: st.top - 20 - pr.top, pr };
+      const pr = pst.getBoundingClientRect(), me = $('.sc-c .sc-me', pst)?.getBoundingClientRect();
+      if (!me || !me.width) return { x: pr.width / 2, y: pr.height / 2, pr };
+      return { x: me.left + me.width / 2 - pr.left, y: me.top + me.height / 2 - pr.top, pr };
     };
     let circO = null;
     function circle(t) {                                    // t: 0 = a dot on the block, 1 = the whole screen
@@ -1679,21 +2019,21 @@
       zw.classList.toggle('on', p > 0);
       if (!p) return;
       const e = p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-      const pr = pst.getBoundingClientRect(), cb = $('.c-grab', pst).getBoundingClientRect();
-      const b = { l: cb.left - pr.left + 76, t: cb.top - pr.top + 32 }; b.r = pr.width - b.l - 40; b.b = pr.height - b.t - 40;
+      const pr = pst.getBoundingClientRect(), mr = $('.sc-f .sc-me', pst).getBoundingClientRect(), cs = Math.max(8, mr.width * .42);
+      const b = { l: mr.left + mr.width / 2 - cs / 2 - pr.left, t: mr.top + mr.height / 2 - cs / 2 - pr.top }; b.r = pr.width - b.l - cs; b.b = pr.height - b.t - cs;
       const k = 1 - e;
       zw.style.setProperty('--zt', (b.t * k).toFixed(1) + 'px'); zw.style.setProperty('--zb', (b.b * k).toFixed(1) + 'px');
       zw.style.setProperty('--zl', (b.l * k).toFixed(1) + 'px'); zw.style.setProperty('--zr', (b.r * k).toFixed(1) + 'px');
       zw.style.setProperty('--zrr', (2 * k).toFixed(1) + 'px');
       zw.style.setProperty('--zbo', Math.max(0, Math.min(1, 1 - (e - .25) / .4)).toFixed(3));   // blue → photo
-      drawGrid(e, b.l + 20, b.t + 20, pr.width, pr.height);
+      drawGrid(e, b.l + cs / 2, b.t + cs / 2, pr.width, pr.height);
       zw.style.setProperty('--zto', Math.max(0, Math.min(1, (e - .62) / .3)).toFixed(3));
     };
 
     /* ---- FAIL FAST. LEARN FAST. → a hammer: it forms, winds up, smashes the screen, the screen breaks apart
             (a crater, glass shards, dead-pixel ink, LCD lines), a second crunch, a long look at the damage,
             then the broken page falls away ---- */
-    const hmRot = $('.hm-rot', pst), hmCv = $('.hm-crack', pst), hmFlash = $('.hm-flash', pst);
+    const hmRot = $('.hm-rot', pst), hmCv = $('.hm-crack', pst), hmFlash = $('.hm-flash', pst), hmPt = $('.hm-pt', pst);
     const hg = hmCv.getContext('2d');
     const dVs = $('.d-vs', pst), dMotto = $('.d-motto', pst);
     let HM = null, hmLast = -1, hmDrawn = -2;
@@ -1767,6 +2107,7 @@
       side(0, 0, W, 0, 0, 1); side(W, 0, W, H, -1, 0); side(W, H, 0, H, 0, -1); side(0, H, 0, 0, 1, 0);
       const clip = 'polygon(' + edge.map(q => q[0].toFixed(1) + 'px ' + q[1].toFixed(1) + 'px').join(',') + ')';
       dLay.style.clipPath = '';
+      if (hmPt) hmPt.style.transform = `translate(${(hit.x - 1).toFixed(1)}px,${(hit.y - 1).toFixed(1)}px)`;   // the crater (the square lands in it)
       HM = { hw, hh, hl, piv, END, WIND, hit, edge, edgeCr, clip, broke: false, dpr, D, RK, rays, rings, cells, powder, dust, lines, bands };
       hmLast = -1; hmDrawn = -2;
     };
@@ -1990,7 +2331,6 @@
       if (cur < 0) return;
       const L = lay(SEG[cur].sc);
       $$('.hl', L).forEach(h => h.classList.add('lit'));
-      $$('.cube', L).forEach(c => c.classList.add('on'));
       if (SEG[cur].sc === 'F') $$('.beat', L).forEach(b => b.classList.add('seen'));
     }
     function setStep(i) {
@@ -2003,10 +2343,7 @@
       // jumping, or leaving / entering a scroll-driven moment: swap layers instantly (no fade → nothing left behind)
       if (jump || SCRUB.has(k) || SCRUB.has(pk)) { pst.classList.add('jump'); requestAnimationFrame(() => requestAnimationFrame(() => pst.classList.remove('jump'))); }
       pst.classList.remove(...ALL); pst.classList.add(...sg.cls);
-      if (psc && psc !== sc) {
-        $$('.cube', lay(psc)).forEach(c => c.classList.remove('on'));
-        if (psc === 'F') $$('.beat', lay('F')).forEach(b => b.classList.remove('seen'));
-      }
+      if (psc && psc !== sc && psc === 'F') $$('.beat', lay('F')).forEach(b => b.classList.remove('seen'));
       if (sc !== 'B') typeSet(sc === 'A' ? 0 : chars.length); else if (k !== 'b0') typeSet(chars.length);
       if (k === 'b2' || k === 'bz') ringStart(!jump && k === 'b2'); else ringStop();
       $$('.vs', pst).forEach((v, n) => { clearTimeout(v._t); if (k === 'd1' || k === 'hm') { if (!v.classList.contains('on')) v._t = setTimeout(() => v.classList.add('on'), jump || k === 'hm' ? 0 : 900 + n * 170); } else v.classList.remove('on'); });
@@ -2019,22 +2356,35 @@
       let i = 0; while (i < N - 1 && u >= starts[i + 1]) i++;
       setStep(u < 0 ? 0 : i);
       const at = k => (u - starts[idx(k)]);
-      vapor(cur === idx('vap') ? clamp(at('vap') / .9, 0, .999) : -1);
+      vapor(cur === idx('vap') ? clamp(at('vap') / .82, 0, 1.12) : -1);
       if (cur === idx('vap') || cur === idx('loss')) losses(at('vap') - 1);
-      if (cur === idx('b0')) typeSet(Math.round(clamp(at('b0') / 1.05) * chars.length));
+      const sc = SEG[cur].sc;
+      if (cur === idx('b0')) { twK = clamp(at('b0') / 1.05) * chars.length; typeSet(Math.floor(twK + 1e-4)); twD = clamp((at('b0') - 1.07) / .2); }
+      else { twK = sc === 'A' ? 0 : chars.length; twD = sc === 'A' ? 0 : 1; }
+      // the scenes (only the ones that can be seen right now)
+      if (sceneC && (sc === 'B' || sc === 'C' || sc === 'D')) sceneC(clamp((at('c0') + .75) / .6), clamp(at('c0') / .92));
+      if (sceneE && (sc === 'D' || sc === 'E' || sc === 'F')) sceneE(clamp((at('e0') + .12) / .8), clamp((at('e0') - .8) / .2));
+      if (sceneF && (sc === 'E' || sc === 'F')) sceneF(clamp(at('f0') / .95));
       portal(cur === idx('bz') ? clamp(at('bz') / SEG[idx('bz')].len) : -1);
       circle(at('cd'));
+      mottoIn(cur === idx('cd') || cur === idx('d0') ? at('cd') : cur < idx('cd') ? -1 : 9);
       hammer(cur === idx('hm') ? clamp(at('hm') / SEG[idx('hm')].len) : -1);
       slide(cur === idx('ef') ? clamp(at('ef') / SEG[idx('ef')].len) : -1);
       zoom(y);
     };
     window.__seg = k => [starts[idx(k)], SEG[idx(k)].len];
-    addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(sync); } }, { passive: true });
+    // the timeline in scroll positions — the travelling square times itself to these
+    window.__story = {
+      SY: (k, pg) => top + (starts[idx(k)] + pg - LEAD) * S,              // where segment k is `pg` pages in
+      ZY: p => segY(N - 1) + (HOLD + p * TAIL) * S,                       // the zoom into SMALL WINS (0 → 1)
+      top: () => top, end: () => top + sec.offsetHeight - H, HL: SEG[idx('hm')].len
+    };
+    addEventListener('scroll', scrollJob(sync), { passive: true });
     new IntersectionObserver(es => es.forEach(en => {
       inView = en.isIntersecting;
       if (inView) wake(); else $$('.cube', pst).forEach(c => c.classList.remove('on'));
     }), { threshold: .5 }).observe(pst);
-    const relayout = () => { layout(); cur = -1; sync(); };
+    const relayout = () => { layout(); cur = -1; sync(); dispatchEvent(new Event('pp-layout')); };
     addEventListener('resize', relayout);
     addEventListener('load', relayout);
     document.fonts?.ready.then(relayout);
@@ -2053,12 +2403,18 @@
     const n = slabs.length;
     const TILT = [-12, 9, -6, 13, -9, 7, -14, 10];
     slabs.forEach((s, i) => s.style.setProperty('--bd', (i * -.55).toFixed(2) + 's'));
-    let H = 1, W = 1, L = 1, top = 0, INTRO = 1, cur = -2, ticking = false;
+    let H = 1, W = 1, L = 1, top = 0, INTRO = 1, cur = -2, ticking = false, RY0 = 0, RY1 = 0;
+    const head = $('.wk-head', sec);
     const layout = () => {
       H = stage.offsetHeight || innerHeight; W = stage.offsetWidth || innerWidth;
       L = H * .62; INTRO = L * 1.2;
       sec.style.height = Math.round(H + INTRO + L * (n - 1) + L * .6) + 'px';
       top = sec.getBoundingClientRect().top + scrollY;
+      // the arc starts below the title and its line (so nothing overlaps), then settles where the focused card lives
+      const mob = W < 760, cw = slabs[0].offsetWidth || 300, ch = cw * .625 * .86;
+      const hb = (parseFloat(getComputedStyle(head).top) || 80) + H * .04 + head.offsetHeight;
+      RY1 = H * (mob ? .38 : .54);
+      RY0 = Math.min(H * .7, Math.max(RY1, hb + ch / 2 + (mob ? 34 : 48)));
       frame();
     };
     const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -2087,15 +2443,18 @@
       const z = ease(clamp(rel / INTRO));                              // overview → one project in focus
       const f = clamp((rel - INTRO) / L, 0, n - 1);                    // which project is in the middle (fractional)
       const zs = z.toFixed(3); if (zs !== stage._z) { stage._z = zs; stage.style.setProperty('--z', zs); }
-      const R = W * (mob ? 1.2 : .7);
+      stage.style.setProperty('--ry', (RY0 + (RY1 - RY0) * z).toFixed(1) + 'px');
+      // overview: a wider arc of slightly smaller cards, each one a step further back than its inner neighbour —
+      // so no two cards ever cut through each other in the middle
+      const R = W * (mob ? 1.2 : .8 - .1 * z);
       const spread = mob ? 15 + 10 * z : 16 + 11 * z;
       slabs.forEach((s, i) => {
         const o = (i - (n - 1) / 2) * (1 - z) + (i - f) * z;            // position along the arc
         const a = o * spread, ar = a * Math.PI / 180;
         const w = clamp(1 - Math.abs(i - f)) * z;                      // 1 = the one in the middle
         const di = ease(clamp(drop * 1.7 - (i % 4) * .12 - (i > 3 ? .1 : 0)));
-        const x = Math.sin(ar) * R, zz = (Math.cos(ar) - 1) * R, yy = (1 - Math.cos(ar)) * R * .22 - (1 - di) * H * 1.15;
-        const sc = 1 + w * (mob ? .12 : .26);
+        const x = Math.sin(ar) * R, zz = (Math.cos(ar) - 1) * R - (1 - z) * (Math.abs(o) * 70 + (o > 0 ? 36 : 0)), yy = (1 - Math.cos(ar)) * R * .22 - (1 - di) * H * 1.15;
+        const sc = (1 + w * (mob ? .12 : .26)) * (.86 + .14 * z);
         s.style.transform = `translate3d(${x.toFixed(1)}px, ${yy.toFixed(1)}px, ${(zz + w * 80).toFixed(1)}px) rotateY(${(-a * .7).toFixed(2)}deg) rotateZ(${(TILT[i % 8] * (1 - w) * (1 - di * 0)).toFixed(2)}deg) scale(${sc.toFixed(3)})`;
         s.style.opacity = (Math.abs(a) > 78 ? 0 : clamp(1 - .6 * z * (1 - w)) * clamp(di * 3)).toFixed(3);
         s.style.zIndex = String(100 - Math.round(Math.abs(o) * 10));
@@ -2103,7 +2462,7 @@
       focus(z > .6 ? Math.round(f) : -1);
       if (bar) bar.style.transform = `${mob ? 'scaleX' : 'scaleY'}(${(f / (n - 1)).toFixed(3)})`;
     }
-    addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(frame); } }, { passive: true });
+    addEventListener('scroll', scrollJob(frame), { passive: true });
     addEventListener('resize', layout); addEventListener('load', layout); document.fonts?.ready.then(layout);
     // click the middle project → open it; click one at the side → scroll it into the middle
     slabs.forEach((s, i) => s.addEventListener('click', () => {
@@ -2154,6 +2513,7 @@
       dpr = DPR(1.5);
       cv.width = W * dpr; cv.height = Hc * dpr; cv.style.height = Hc + 'px';
       kick();
+      dispatchEvent(new Event('pp-layout'));
     };
     const bounce = k => { const n = 7.5625, d = 2.75; if (k < 1 / d) return n * k * k; if (k < 2 / d) return n * (k -= 1.5 / d) * k + .75; if (k < 2.5 / d) return n * (k -= 2.25 / d) * k + .9375; return n * (k -= 2.625 / d) * k + .984375; };
     const frame = now => {
@@ -2184,12 +2544,15 @@
     const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
     window.__vxRedraw = kick;
     window.__vxDot = () => {                                           // the "." in screen space, and whether it has landed
-      if (!DOT || !vis) return null;
+      if (!DOT) return null;
       const r = cv.getBoundingClientRect(), prog = reduce ? 1 : Math.max(0, Math.min(1, (innerHeight * .98 - r.top) / (innerHeight * .62)));
       const k = Math.min(1, (prog - DOT.dl / 1530 * .62) / .38), sz = Math.max(DOT.x1 - DOT.x0, DOT.y1 - DOT.y0);
       const fallY = k > 0 ? (1 - bounce(k)) * (Hc + 80) : 0;             // still bouncing into place, like its neighbours
-      return { x: r.left + (DOT.x0 + DOT.x1) / 2, y: r.top + (DOT.y0 + DOT.y1) / 2 - fallY, s: Math.max(sz, cell * 2), cell, on: k >= .6 && r.top < innerHeight && r.bottom > 0 };
+      const y0 = r.top + (DOT.y0 + DOT.y1) / 2;
+      return { x: r.left + (DOT.x0 + DOT.x1) / 2, y: y0 - fallY, y0, s: Math.max(sz, cell * 2), cell, on: k >= .6 && r.top < innerHeight && r.bottom > 0 };
     };
+    // the scroll position at which the "." has landed
+    window.__vxLandY = () => DOT ? cv.getBoundingClientRect().top + scrollY - innerHeight * .98 + (DOT.dl / 1530 * .62 + .38) * innerHeight * .62 : null;
     const at = e => { const r = cv.getBoundingClientRect(); px = e.clientX - r.left; py = e.clientY - r.top; kick(); };
     cv.addEventListener('pointermove', at);
     cv.addEventListener('pointerdown', e => { at(e); if (e.pointerType !== 'mouse') setTimeout(() => { px = py = -1e4; kick(); }, 700); });
@@ -2307,7 +2670,7 @@
       }
       lastS = s;
     };
-    addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(upd); } }, { passive: true });
+    addEventListener('scroll', scrollJob(upd), { passive: true });
     let rt = 0; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(build, 120); });
     mq.addEventListener?.('change', build);
     addEventListener('load', build);
@@ -2338,6 +2701,7 @@
     const ease = t => 1 - Math.pow(1 - t, 3);
     // the little scene, in its own units (same layout as the old CSS version): giver + four receivers
     const GIVER = { x: 14, y: -40, s: 40 }, KS = [90, 128, 166, 204].map(x => ({ x, y: -14, s: 14 })), CW = 240;
+    const SP = Array.from({ length: 22 }, (_, k) => ({ b: k % 5, x: .15 + ((k * 37) % 70) / 100, o: ((k * 61) % 100) / 100, v: 7 + (k % 4) * 2.5, s: 1.4 + (k % 3) * .9, w: k % 6 === 0 }));
     const layout = () => {
       W = stage.clientWidth; H = stage.clientHeight;
       sec.style.height = Math.round(H * 3.4) + 'px';
@@ -2378,42 +2742,87 @@
       if (burst < .01) {
         const jit = charge * charge * 3.6 * SC;
         const J = () => (Math.random() - .5) * jit;
-        // charging: square pulses ripple out from the group, faster and brighter as it fills up
-        if (charge > 0) {
-          const gcx = X(CW / 2 - 10), gcy = Y(-18), n = 1 + charge * 5;
-          for (let k = 0; k < 3; k++) {
-            const ph = (charge * n + k / 3) % 1, r = (40 + ph * 160) * SC * .5;
-            g.strokeStyle = `rgba(77,163,255,${((1 - ph) * .5 * charge).toFixed(3)})`; g.lineWidth = 1.5;
-            g.strokeRect(gcx - r * 1.6, gcy - r * .6, r * 3.2, r * 1.2);
+        const gcx = X(GIVER.x + GIVER.s / 2), gcy = Y(GIVER.y + GIVER.s / 2), fl0 = Y(0);
+        // light pooled on the floor under the group — brighter as it charges
+        const lc = X(CW / 2 - 8), lr = CW * SC * .62;
+        let gr = g.createRadialGradient(lc, fl0, 0, lc, fl0, lr);
+        gr.addColorStop(0, `rgba(77,163,255,${(.07 + .3 * charge).toFixed(3)})`); gr.addColorStop(1, 'rgba(77,163,255,0)');
+        g.save(); g.translate(lc, fl0); g.scale(1, .2); g.fillStyle = gr; g.fillRect(-lr, -lr, lr * 2, lr * 2); g.restore();
+        // the floor: a line that fades out at both ends
+        gr = g.createLinearGradient(X(-24), 0, X(CW + 24), 0);
+        gr.addColorStop(0, 'rgba(246,246,243,0)'); gr.addColorStop(.18, 'rgba(246,246,243,.26)'); gr.addColorStop(.82, 'rgba(246,246,243,.26)'); gr.addColorStop(1, 'rgba(246,246,243,0)');
+        g.fillStyle = gr; g.fillRect(X(-24), fl0, (CW + 48) * SC, Math.max(1, SC * .45));
+        // links: each block that got its blue stays connected to the giver; little bright packets run along them (faster as it charges)
+        KS.forEach((k, i) => {
+          const got = clamp((pp - (.14 + i * .055)) / .04);
+          if (got <= 0) return;
+          const ex = X(k.x + k.s / 2), ey = Y(k.y + k.s / 2), cx2 = (gcx + ex) / 2, cy2 = Math.min(gcy, ey) - 30 * SC;
+          g.strokeStyle = `rgba(77,163,255,${(got * (.16 + .5 * charge)).toFixed(3)})`; g.lineWidth = Math.max(1, SC * .4);
+          g.beginPath(); g.moveTo(gcx, gcy); g.quadraticCurveTo(cx2, cy2, ex, ey); g.stroke();
+          for (let m = 0; m < 2; m++) {
+            const u = (pp * (5 + 12 * charge) + i * .27 + m * .5) % 1, v = 1 - u;
+            const px2 = v * v * gcx + 2 * v * u * cx2 + u * u * ex, py2 = v * v * gcy + 2 * v * u * cy2 + u * u * ey, q = (1.6 + 1.8 * charge) * SC;
+            g.fillStyle = `rgba(191,224,255,${(got * (.45 + .55 * charge) * Math.sin(u * Math.PI)).toFixed(3)})`; g.fillRect(px2 - q / 2, py2 - q / 2, q, q);
           }
-        }
-        // floor
-        g.fillStyle = '#2a2a2d'; g.fillRect(X(0), Y(0), CW * SC, Math.max(1, SC * .8));
-        // glow while charging
+        });
+        // charging: a halo behind every block, and sparks drifting up off them (all on the scroll)
         if (charge > 0) {
-          g.fillStyle = `rgba(77,163,255,${(.12 + .25 * charge).toFixed(3)})`;
-          const pad = (6 + 10 * charge) * SC;
-          [GIVER, ...KS].forEach(b => g.fillRect(X(b.x) - pad / 2, Y(b.y) - pad / 2, b.s * SC + pad, b.s * SC + pad));
+          [GIVER, ...KS].forEach(b => {
+            const cx = X(b.x + b.s / 2), cy = Y(b.y + b.s / 2), r = (b.s * .95 + 20 * charge) * SC;
+            const h = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+            h.addColorStop(0, `rgba(77,163,255,${(.34 * charge).toFixed(3)})`); h.addColorStop(1, 'rgba(77,163,255,0)');
+            g.fillStyle = h; g.fillRect(cx - r, cy - r, r * 2, r * 2);
+          });
+          SP.forEach(sp => {
+            const b = sp.b ? KS[sp.b - 1] : GIVER, ph = (pp * sp.v + sp.o) % 1, a = (1 - ph) * charge * .9;
+            const q = sp.s * SC * (1 - ph * .5);
+            g.fillStyle = `rgba(${sp.w ? '246,246,243' : '120,185,255'},${a.toFixed(3)})`;
+            g.fillRect(X(b.x + b.s * sp.x) - q / 2 + Math.sin(ph * 6 + sp.o * 9) * 3 * SC, Y(b.y) - ph * (26 + 34 * charge) * SC, q, q);
+          });
         }
-        // giver (white) with the blue core inside
+        // giver (white) with the blue core inside — hidden while the travelling square is sitting on it (it *is* that square)
         const gx = X(GIVER.x) + J(), gy = Y(GIVER.y) + J();
-        if (!window.__giverHide) {                                     // (hidden while the buddy square is away from it)
+        if (!window.__giverHide) {
           g.fillStyle = '#f6f6f3'; g.fillRect(gx, gy, GIVER.s * SC, GIVER.s * SC);
           const cs = (8 + 14 * charge) * SC;
           g.fillStyle = '#4da3ff'; g.fillRect(gx + (GIVER.s * SC - cs) / 2, gy + (GIVER.s * SC - cs) / 2, cs, cs);
         }
-        // four receivers + the blue squares tossed to them
+        // four receivers: each one catches a blue square, squashes, and a ring opens out of it
         KS.forEach((k, i) => {
-          const t = clamp((pp - (.05 + i * .055)) / .09), got = t >= 1;
-          const kx = X(k.x) + J(), ky = Y(k.y) + J(), ks = k.s * SC;
-          g.fillStyle = got ? '#4da3ff' : '#38383b'; g.fillRect(kx, ky, ks, ks);
-          if (t > 0 && !got) {                                          // in flight: an arc from the giver to this block
+          const t = clamp((pp - (.05 + i * .055)) / .09), got = t >= 1, ks = k.s * SC;
+          const u = clamp((pp - (.14 + i * .055)) / .07), sq = u > 0 && u < 1 ? 1 - .3 * Math.sin(u * Math.PI) : 1;
+          const kx = X(k.x) + J(), ky = Y(k.y) + J() + ks * (1 - sq);
+          g.fillStyle = got ? '#4da3ff' : '#303034'; g.fillRect(kx - ks * (1 / sq - 1) / 2, ky, ks / sq, ks * sq);
+          if (got) { g.fillStyle = `rgba(214,236,255,${(.35 + .45 * charge).toFixed(3)})`; const c2 = ks * .36; g.fillRect(kx + (ks - c2) / 2, ky + (ks * sq - c2) / 2, c2, c2); }
+          else { g.fillStyle = 'rgba(246,246,243,.16)'; g.fillRect(kx, ky, ks, Math.max(1, SC * .4)); }
+          if (u > 0 && u < 1) {
+            const rr = ks * (1 + 1.9 * (1 - Math.pow(1 - u, 2)));
+            g.strokeStyle = `rgba(120,185,255,${((1 - u) * .85).toFixed(3)})`; g.lineWidth = Math.max(1, SC * .6);
+            g.strokeRect(kx + ks / 2 - rr / 2, ky + ks / 2 - rr / 2, rr, rr);
+          }
+          if (t > 0 && !got) {                                          // in flight: an arc from the giver, with a short trail
             const sx = X(GIVER.x + GIVER.s / 2), sy = Y(GIVER.y + GIVER.s / 2), ex = kx + ks / 2, ey = ky + ks / 2;
-            const x = sx + (ex - sx) * t, y = sy + (ey - sy) * t - Math.sin(t * Math.PI) * 58 * SC, q = 8 * SC;
-            g.save(); g.translate(x, y); g.rotate(t * Math.PI * 2); g.fillStyle = '#4da3ff'; g.fillRect(-q / 2, -q / 2, q, q); g.restore();
+            for (let tr = 3; tr >= 0; tr--) {
+              const tt = Math.max(0, t - tr * .06), x = sx + (ex - sx) * tt, y = sy + (ey - sy) * tt - Math.sin(tt * Math.PI) * 58 * SC, q = 8 * SC * (1 - tr * .18);
+              g.save(); g.translate(x, y); g.rotate(tt * Math.PI * 2); g.globalAlpha = 1 - tr * .26; g.fillStyle = '#4da3ff'; g.fillRect(-q / 2, -q / 2, q, q); g.restore();
+            }
+            g.globalAlpha = 1;
           }
         });
         return;
+      }
+      // the burst: a flash of light and a square shockwave from the middle of the group …
+      if (burst < 1) {
+        const fx = X(CW / 2 - 8), fy = Y(-16), fr = Math.hypot(VW, VH) * (.25 + .75 * burst), k = 1 - burst;
+        const fl = g.createRadialGradient(fx, fy, 0, fx, fy, fr);
+        fl.addColorStop(0, `rgba(226,240,255,${(.5 * k * k).toFixed(3)})`); fl.addColorStop(.3, `rgba(77,163,255,${(.22 * k).toFixed(3)})`); fl.addColorStop(1, 'rgba(77,163,255,0)');
+        g.fillStyle = fl; g.fillRect(0, 0, VW, VH);
+        for (let r = 0; r < 2; r++) {
+          const b2 = clamp(burst * 1.25 - r * .2), sw = 30 * SC + b2 * Math.max(VW, VH) * 1.15;
+          if (b2 <= 0 || b2 >= 1) continue;
+          g.strokeStyle = `rgba(${r ? '246,246,243' : '120,185,255'},${((1 - b2) * .7).toFixed(3)})`; g.lineWidth = (r ? 1 : 2.5) * Math.max(1, SC * .6);
+          g.save(); g.translate(fx, fy); g.rotate(b2 * .5); g.strokeRect(-sw / 2, -sw / 2, sw, sw); g.restore();
+        }
       }
       // burst → fall
       const src = [GIVER, ...KS];
@@ -2425,8 +2834,14 @@
         g.save(); g.translate(x, y); g.rotate(q.spin * (e + fall)); g.fillStyle = q.c; g.fillRect(-q.s / 2, -q.s / 2, q.s, q.s); g.restore();
       }
     };
-    addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(draw); } }, { passive: true });
+    addEventListener('scroll', scrollJob(draw), { passive: true });
     window.__gvRedraw = () => { last = -9; draw(); };
+    window.__giverPose = () => {
+      if (!W) return null;
+      const sTop = stage.getBoundingClientRect().top, ox = (innerWidth - W) / 2 + W / 2 - CW * SC / 2, oy = H * .3 + sTop, gs = GIVER.s * SC;
+      const p = clamp((scrollY - top) / (sec.offsetHeight - H || 1)), charge = clamp((p - .36) / .26);
+      return { x: ox + GIVER.x * SC + gs / 2, y: oy + GIVER.y * SC + gs / 2, s: gs, core: (8 + 14 * charge) / GIVER.s, jit: charge * charge * 3.6 * SC, glow: charge * .9 };
+    };
     addEventListener('resize', layout); addEventListener('load', layout); document.fonts?.ready.then(layout);
     layout();
   })();
@@ -2434,162 +2849,248 @@
 
 
 
-  /* ---------- THE BUDDY — "me": the white square next to PEE, now a 3D cube that comes along the whole way.
-                  It becomes every square the story has (the dot of I LOST., the little "me" block in each scene,
-                  the white block that gives, the dot of PROOF., the block that opens ABOUT) and floats at the side in between.
-                  Always a toy: grab it and throw it, click it, or swat it with a fast swipe — it bounces around and comes back. ---------- */
+  /* ---------- THE BUDDY — one full stop that travels with you.
+                  Every heading here ends in a square "." and every little scene has a square "me": they are all this one square.
+                  It sits in one of them; scroll and it travels to the next — exactly as far as you've scrolled
+                  (stop and it waits, scroll back and it goes back). It hops, rolls, dives or gets knocked, depending on the moment.
+                  Still a toy: grab it and throw it, click it, or swat it with a fast swipe — it bounces around, then goes back. ---------- */
   (() => {
     if (reduce) return;
-    const sq = $('.wm .sq'), pst = $('#pst'), story = $('.pstory'), zw = pst && $('.zw', pst);
+    const root = document.documentElement, sq = $('.wm .sq'), pst = $('#pst'), ST = window.__story;
     if (!sq) return;
-    const root = document.documentElement;
-    const b3 = document.createElement('div'); b3.className = 'b3'; b3.setAttribute('aria-hidden', 'true');
-    b3.innerHTML = '<i></i><i></i><i></i><i></i><i></i><i></i><b class="b3-ring"></b><b class="b3-hit"></b>';
+    const b3 = document.createElement('div'); b3.className = 'b3 off'; b3.setAttribute('aria-hidden', 'true');
+    b3.innerHTML = '<i></i><b class="b3-ring"></b><b class="b3-hit"></b>';
     document.body.appendChild(b3);
     const hit = $('.b3-hit', b3);
     const trail = Array.from({ length: 5 }, () => { const t = document.createElement('i'); t.className = 'b3-tr'; document.body.appendChild(t); return t; });
-    const EL = { hero: sq, lost: pst && $('.a-dot', pst), mdot: pst && $('.d-motto .m-dot', pst), better: pst && $('.c-better i', pst), opp: pst && $('.c-opp i', pst), grab: pst && $('.c-grab i', pst), dot: $('.cc-dot'), block: $('.px-block') };
-    const pxStage = $('.px-stage'), pxTxt = $('.px-stage .cc-txt'), work = $('#work');
     const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
     const lerp = (a, b, t) => a + (b - a) * t;
-    const eio = t => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const smoother = t => t * t * t * (t * (t * 6 - 15) + 10);
+    const cubic = t => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
     const PI = Math.PI, INK = [18, 18, 21], PAPER = [246, 246, 243], BLUE = [77, 163, 255];
     const SILLY = ['boing', 'quack', 'squeak', 'honk', 'bloop', 'slide'];
-    const rgb = str => { const m = /rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)(?:[, /]+([\d.]+))?/.exec(str || ''); return m && (m[4] === undefined || +m[4] > .1) ? [+m[1], +m[2], +m[3]] : null; };
-    const inView = el => { if (!el) return null; const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < root.clientWidth ? r : null; };
     const W = () => root.clientWidth, H = () => innerHeight;
-    let mx = -1e4, my = -1e4; addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; }, { passive: true });
-    // is the square's centre actually visible (inside its clipping box and on screen)?
-    const within = (el, box) => {
-      if (!el || !box) return false;
-      const r = el.getBoundingClientRect(), b = box.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
-      return x > Math.max(0, b.left) && x < Math.min(W(), b.right) && y > Math.max(0, b.top) && y < Math.min(H(), b.bottom);
-    };
-    // where each square is right now (centre, size, angle, colour)
-    const pose = name => {
-      const w = W(), h = H(), mob = w < 700;
-      if (name === 'park') {
-        const x = w - (mob ? 30 : 62), y = h * .52;
-        const light = $$('.panel').some(p => { const r = p.getBoundingClientRect(); return x > r.left && x < r.right && y > r.top && y < r.bottom; });
-        return { x, y: y + Math.sin(performance.now() / 700) * 6, s: mob ? 18 : 28, rz: 0, c: light ? INK : PAPER, core: 0 };
+    const rgb = str => { const m = /rgba?\(([\d.]+)[, ]+([\d.]+)[, ]+([\d.]+)(?:[, /]+([\d.]+))?/.exec(str || ''); return m && (m[4] === undefined || +m[4] > .1) ? [+m[1], +m[2], +m[3]] : null; };
+    const docY = el => el.getBoundingClientRect().top + scrollY;
+    const midY = (el, v) => docY(el) + el.offsetHeight / 2 - H() * v;       // scroll position where el's middle is at v × the screen height
+    const q = s => $(s), qp = s => pst && $(s, pst);
+    let mx = -1e4, my = -1e4;
+
+    /* ---- where a square is on screen right now: centre, size, angle, colour ---- */
+    const colorOf = el => rgb(getComputedStyle(el).backgroundColor) || PAPER;
+    const boxPose = (el, upTo) => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (r.width < .5 && r.height < .5) return null;
+      let rz = 0, s = r.width;
+      if (upTo) {                                    // turned along with its parents (the hammer, the falling block)
+        let a = 0;
+        for (let e = el; e && e !== upTo; e = e.parentElement) { const t = getComputedStyle(e).transform; if (t && t !== 'none') { const m = new DOMMatrixReadOnly(t); a += Math.atan2(m.b, m.a); } }
+        s = r.width / (Math.abs(Math.cos(a)) + Math.abs(Math.sin(a))); rz = a * 180 / PI;
       }
-      if (name === 'vx') {                                               // the "." — sits like one of the voxel blocks, and lifts + turns blue under your cursor like them
-        const v = window.__vxDot?.() || { x: w / 2, y: h / 2, s: 40, cell: 10 }, R = v.cell * 9, d = Math.hypot(v.x - mx, v.y - my), lift = d < R ? (1 - d / R) ** 1.5 * v.cell * 2.2 : 0;
-        return { x: v.x, y: v.y - lift, s: v.s, rz: 0, c: lift > v.cell * .18 ? BLUE : INK, core: 0 };
-      }
-      if (name === 'giver') { const g = window.__giver || {}; return { x: g.x || w / 2, y: g.y || h / 2, s: g.s || 40, rz: 0, c: PAPER, core: g.core || 0 }; }
-      const el = EL[name], r = el.getBoundingClientRect(), par = el.parentElement, pr = par.getBoundingClientRect();
-      const k = par.offsetWidth ? pr.width / par.offsetWidth : 1, cs = getComputedStyle(el);
-      let ang = 0, sc = 1;
-      if (cs.transform && cs.transform !== 'none') { const m = new DOMMatrixReadOnly(cs.transform); ang = Math.atan2(m.b, m.a) * 180 / PI; sc = Math.hypot(m.a, m.b); }
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2, s: el.offsetWidth * k * sc, rz: ang, c: rgb(cs.backgroundColor) || PAPER, core: 0 };
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, s, rz, c: colorOf(el) };
     };
-    // which square should it be right now?
-    const pick = () => {
-      const h = H(), y = scrollY;
-      if (root.classList.contains('intro-on') || root.classList.contains('case-open')) return 'hide';
-      if (y < h * .3) return sq.classList.contains('in') ? 'hero' : 'hide';
-      const sr = story && story.getBoundingClientRect();
-      if (sr && sr.top < h * .9 && sr.bottom > h) {
-        if ((pst.classList.contains('a0') || pst.classList.contains('a1')) && EL.lost) return 'lost';
-        if (sr.top <= 1) {
-          // leave the scene when something covers it: the circle opening out of BETTER, the zoom window out of "grabbed"
-          if (pst.classList.contains('sD') && !pst.classList.contains('hmr') && EL.mdot) return 'mdot~';   // one of the dots of FAIL FAST. LEARN FAST.
-          if (pst.classList.contains('sC') && EL.better) return pst.classList.contains('cd') ? 'better~' : 'better';
-          if (pst.classList.contains('sE') && pst.classList.contains('ef') && EL.grab) return 'grab';   // the page slides: hop over to the next scene
-          if (pst.classList.contains('sE') && EL.opp) return 'opp';
-          if (pst.classList.contains('sF') && EL.grab) return zw && zw.classList.contains('on') ? 'grab~' : 'grab';
-        }
-        return 'park';
-      }
-      const g = window.__giver; if (g && g.on) return 'giver';
-      if (EL.dot && pxTxt && +getComputedStyle(pxTxt).opacity > .6 && within(EL.dot, pxStage)) return 'dot';
-      if (EL.block && +(EL.block.style.opacity || 0) > .5 && inView(pxStage)) return within(EL.block, pxStage) ? 'block' : 'block~';
-      const vd = window.__vxDot?.(); if (vd && vd.on) return 'vx';          // the end: it becomes the "." of LET'S MAKE SOMETHING.
-      return 'park';
+    const mePose = k => {                             // "me" in a scene: the scene says how it's turned and squashed
+      const box = qp('.sc-' + k + ' .scn-in') || qp('.sc-' + k), el = qp('.sc-' + k + ' .sc-me');
+      if (!box || !el) return null;
+      const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+      if (!b.width) return null;
+      const st = el._st || {};
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, s: st.s || 40 * b.width / 400, rz: st.r || 0, sx: st.sx || 1, sy: st.sy || 1, c: colorOf(el), core: st.core || 0 };
     };
-    let mode = 'hide', tgt = 'hide', F = null, gone = false, raf = 0, lastT = 0, lastY = scrollY, sv = 0, played = false;
+
+    /* ---- the stops, in the order you meet them. win() = the scroll range where it sits there;
+            between one stop's end and the next one's start, it's on its way ---- */
+    const stops = [], add = o => stops.push(o);
+    add({ id: 'hero', el: sq, pose: () => boxPose(sq), win: () => [-1e9, H() * .04] });                          // PEE.
+    if (ST && pst) {
+      const HL = ST.HL;
+      // I LOST. — it stays the full stop while the words turn to dust, and only leaves once they're all gone
+      // … and when the dust sweeps over it, it's blown off with the dust — up and away — and comes down on the first loss
+      add({ id: 'lost', el: qp('.a-dot'), pose: () => boxPose(qp('.a-dot')), win: () => [ST.top(), ST.SY('vap', .44)] });
+      // each loss: the full stop of its title, while it's the one in front of you
+      $$('.lx-dot', pst).forEach((d, i) => add({ id: 'loss' + i, el: d, pose: () => boxPose(d), win: () => [ST.SY('loss', 1.1 * i + (i ? -.14 : -.12)), ST.SY('loss', 1.1 * i + .4)], path: i ? null : { gust: 1, ease: t => t * (1.35 - .35 * t) } }));
+      // I SEE WHERE I STAND. — the cursor that types it, then its full stop
+      add({ id: 'tw', el: qp('.tw-dot'), pose: () => { const t = window.__twPose?.(); return t && { x: t.x, y: t.y, s: t.s, rz: 0, c: rgb(t.col) || PAPER }; }, win: () => [ST.SY('b0', 0), ST.SY('bz', 0)] });
+      // it dives through the ring with you → me, climbing the stairs. The circle opens out of it (that's the real square under the circle)
+      add({ id: 'c', scene: qp('.sc-c'), show: on => window.__mtnCube?.(on), pose: () => mePose('c'), win: () => [ST.SY('c0', -.03), ST.SY('cd', .95)], path: { dive: 1 }, yieldIf: () => true });
+      // FAIL FAST. LEARN FAST. has its own full stop, always there: the square is part of that page for a moment
+      add({ id: 'mdot', pose: () => boxPose(qp('.d-motto .m-dot')), win: () => [ST.SY('d0', 0), ST.SY('hm', .072 * HL)], hid: 1, yieldIf: () => true });
+      // … and rides the hammer as its full stop …
+      add({ id: 'hm', el: qp('.hm-dot'), pose: () => boxPose(qp('.hm-dot'), qp('.hm')), win: () => [ST.SY('hm', .095 * HL), ST.SY('hm', .36 * HL)], path: { straight: 1, roll: 0, bump: 0 } });
+      // … gets knocked off by the hit, flies up while the hammer hits again, lands in the crater and sits there while you look at the damage …
+      add({ id: 'crack', pose: () => { const p = boxPose(qp('.hm-pt')); return p && { x: p.x, y: p.y, s: clamp(Math.min(W(), H()) * .034, 18, 34), rz: 22, c: PAPER }; }, win: () => [ST.SY('hm', .69 * HL), ST.SY('hm', .845 * HL)], path: { knock: 1, ease: t => t } });
+      // … and as the broken page falls away it hops out: me, on the next page
+      add({ id: 'e', el: qp('.sc-e .sc-me'), scene: qp('.sc-e'), pose: () => mePose('e'), win: () => [ST.SY('hm', .975 * HL), ST.SY('ef', 0)] });
+      // the pages slide under it — it stays where it is and is me on the next one, where it grabs the blue one
+      add({ id: 'f', el: qp('.sc-f .sc-me'), scene: qp('.sc-f'), pose: () => mePose('f'), win: () => [ST.SY('ef', 1), ST.ZY(.2)], path: { ease: cubic, jump: 1, roll: 1, bump: .25 } });
+      // it opens up into the window onto SMALL WINS … and comes back as that title's full stop
+      const zt = qp('.zw-t');
+      add({ id: 'wins', el: qp('.zw-dot'), pose: () => boxPose(qp('.zw-dot')), win: () => [ST.ZY(.56), ST.end() + H() * .3], hid: 1, op: () => zt ? +getComputedStyle(zt).opacity || 0 : 1 });
+    }
+    // SMALL WINS: one of the little blocks over the photo … then the bullet of each point as it comes in
+    const wfMain = q('.win-feat .wf-main'), lis = $$('.win-feat .wf-points li'), wxPin = q('.wx-pin');
+    const wxOn = matchMedia('(min-width: 900px) and (min-height: 700px)');
+    if (wfMain && wxPin) {
+      const wp = p => { const t = docY(wxPin), sp = wxPin.offsetHeight - H(); return p < 0 ? t + p * H() : t + p * sp; };
+      add({ id: 'cell', pose: () => {
+          const r = wfMain.getBoundingClientRect(); if (!r.width) return null;
+          const cw = r.width / (innerWidth < 700 ? 10 : 12);
+          return { x: r.right - cw / 2, y: r.top + cw / 2, s: cw * .9, rz: 0, c: PAPER };
+        }, win: () => wxOn.matches ? [wp(-.22), wp(.3)] : [midY(wfMain, .62), midY(wfMain, .36)] });
+      lis.forEach((li, i) => add({ id: 'pt' + i, pose: () => {
+          const r = li.getBoundingClientRect(); if (!r.width) return null;
+          const fs = parseFloat(getComputedStyle(li).fontSize) || 16;
+          return { x: r.left + 4, y: r.top + fs * .62 + 4, s: 8, rz: 0, c: i === 1 ? BLUE : PAPER };
+        }, win: () => {
+          if (wxOn.matches) return [wp(.455 + i * .075), wp(i < lis.length - 1 ? .5 + i * .075 : .97)];
+          const a = midY(lis[0], .74) + i * H() * .15;                   // phones: the points are close together, so give each hop its own bit of scrolling
+          return [a, i < lis.length - 1 ? a + H() * .05 : Math.max(a + H() * .05, midY(li, .3))];
+        } }));
+    }
+    // GIVE: the white block that hands out the blue (it shakes as it charges up) — then it bursts
+    const gv = q('.gv');
+    if (gv && window.__giverPose) add({ id: 'give',
+      show: on => { if (window.__giverHide !== !on) { window.__giverHide = !on; window.__gvRedraw?.(); } },
+      pose: () => { const g = window.__giverPose(); if (!g) return null; const j = g.jit || 0; return { x: g.x + (Math.random() - .5) * j, y: g.y + (Math.random() - .5) * j, s: g.s, rz: 0, c: PAPER, core: g.core, glow: g.glow }; },
+      win: () => { const t = docY(gv), sp = gv.offsetHeight - H(); return [t - sp * .1, t + sp * .62]; },
+      out: () => ({ s: 7, core: 0 }) });                                   // it leaves as one of the pieces
+    // THE WORK. — one of those pieces falls in and lands as its full stop
+    const wk = q('#work'), wkDot = q('.wk-dot');
+    if (wk && wkDot) add({ id: 'work', el: wkDot, pose: () => boxPose(wkDot), win: () => { const t = docY(wk); return [t - H() * .1, t + wk.offsetHeight - H() * 1.05]; }, path: { fall: 1 } });
+    // PROOF. → the certificates collapse into one blue block, and it's that block
+    const px = q('.px-pin'), ccDot = q('.cc-dot'), pxb = q('.px-block');
+    if (px && ccDot) {
+      const inn = v => docY(px) - H() + v * H() * 1.15, out = v => docY(px) + (px.offsetHeight - H()) * (.42 + v * .58);
+      add({ id: 'proof', el: ccDot, glow: 1, pose: () => boxPose(ccDot), win: () => [inn(.84), out(.1)] });
+      if (pxb) add({ id: 'block', el: pxb, glow: .7, pose: () => boxPose(pxb, pxb.parentElement), win: () => [out(.36), out(.8)] });
+    }
+    // ABOUT ME. — while the blue block drops away and the About page opens up from below, it floats up to that title's full stop
+    const pn = q('#about .panel.unfold'), abDot = q('.ab-dot');
+    if (pn && abDot) add({ id: 'about', el: abDot, pose: () => boxPose(abDot), win: () => [docY(pn) - H() + .8 * H() * .85, docY(abDot) - H() * .16] });
+    // SKILLS.
+    const kbDot = q('.kb-dot');
+    if (kbDot) add({ id: 'skills', el: kbDot, pose: () => boxPose(kbDot), win: () => { const y = docY(kbDot); return [y - H() * .64, y - H() * .22]; } });
+    // the end: LET'S MAKE SOMETHING. — it lands as the full stop, and lifts / turns blue under your cursor like the other blocks
+    if (window.__vxDot) add({ id: 'vx',
+      show: on => { if (window.__vxHide !== !on) { window.__vxHide = !on; window.__vxRedraw?.(); } },
+      pose: () => { const v = window.__vxDot(); if (!v) return null; const R = v.cell * 9, d = Math.hypot(v.x - mx, v.y0 - my), lift = d < R ? (1 - d / R) ** 1.5 * v.cell * 2.2 : 0;
+        return { x: v.x, y: v.y0 - lift, s: v.s, rz: 0, c: lift > v.cell * .18 ? BLUE : INK }; },
+      win: () => { const y = window.__vxLandY?.(); return [y == null ? 1e9 : y, 1e10]; } });
+    const scenes = stops.filter(s => s.scene).map(s => s.scene);
+    const anchors = stops.filter(s => s.el || s.show);
+
+    // scroll ranges (measured again whenever the page changes size)
+    let A = [], B = [];
+    const layout = () => {
+      stops.forEach((s, i) => { let [a, b] = s.win(); if (!isFinite(a)) a = 1e9; if (!isFinite(b)) b = a; A[i] = a; B[i] = Math.max(a, b); });
+      for (let i = 1; i < stops.length; i++) { if (A[i] < B[i - 1]) A[i] = B[i - 1]; if (B[i] < A[i]) B[i] = A[i]; }
+      kick();
+    };
+    const locate = y => {
+      let i = 0;
+      while (i + 1 < stops.length && y >= A[i + 1]) i++;
+      if (y <= B[i] || i + 1 >= stops.length) return [i, 0];
+      return [i, clamp((y - B[i]) / Math.max(1, A[i + 1] - B[i]))];
+    };
+
+    /* ---- on its way from one stop to the next: a curve (a hop, a dive through the ring, a knock-off, a fall),
+            rolling a quarter turn at a time — its ends are the two squares, live ---- */
+    const travel = (a, b, f, now) => {
+      let P0 = a.pose(), P1 = b.pose();
+      if (!P0 && !P1) return null;
+      if (!P0) P0 = P1; if (!P1) P1 = P0;
+      if (a.out) P0 = Object.assign({}, P0, a.out(P0));
+      const h = H(), pth = b.path || {}, e = (pth.ease || smoother)(f);
+      const cy = v => clamp(v, -h * .25, h * 1.25);                       // never far off screen, even when a stop is
+      const ax = P0.x, ay = cy(P0.y), bx = P1.x, by = cy(P1.y), dx = bx - ax, dist = Math.hypot(dx, by - ay);
+      let x, y;
+      if (pth.straight) { x = lerp(ax, bx, e); y = lerp(ay, by, e); }
+      else {
+        let cx = (ax + bx) / 2, cc = (ay + by) / 2;
+        if (pth.knock) { cc = Math.min(ay, by) - h * .38; cx += dx * .3 + h * .08; }
+        else if (pth.fall) cc = Math.max(ay, by) + h * .14;
+        else if (pth.jump) cc = Math.min(ay, by) - h * .44;                 // a big jump over to the next page
+        else if (pth.gust) { cx = ax + W() * .2; cc = Math.min(ay, by) - h * .36; }   // blown up and to the right with the dust
+        else if (pth.dive) { const rw = qp('.ring-wrap'); if (rw) { const r = rw.getBoundingClientRect(); cx = r.left + r.width / 2; cc = r.top + r.height / 2; } }
+        else cc -= clamp(dist * .3, 40, h * .28);
+        const u = 1 - e;
+        x = u * u * ax + 2 * u * e * cx + e * e * bx; y = u * u * ay + 2 * u * e * cc + e * e * by;
+      }
+      const bump = pth.bump ?? (pth.dive ? -.8 : pth.knock ? 1.1 : .35);
+      const s = Math.max(2, lerp(P0.s, P1.s, e) * Math.max(.14, 1 + bump * Math.sin(PI * e)));
+      const turns = pth.roll ?? (pth.gust ? 3 : clamp(Math.round(dist / 240), 1, 3) * (pth.knock ? 2 : 1) * (dx < 0 ? -1 : 1));
+      const dop = pth.dive ? (e < .5 ? clamp((.5 - e) * 3.4 - .3) : 0) : 1;
+      const w = Math.sin(PI * f), bob = pth.straight ? 0 : Math.sin(now / 380) * 3 * w;     // a hint of life while it hangs in mid-air
+      return { x, y: y + bob, s, rz: lerp(P0.rz || 0, P1.rz || 0, e) + turns * 90 * e + (pth.straight ? 0 : Math.sin(now / 520) * 4 * w),
+        // crouched at take-off, stretched in the air, squashed as it lands
+        sx: lerp(lerp(P0.sx || 1, P1.sx || 1, e), pth.straight ? 1 : .9, Math.sin(PI * f)), sy: lerp(lerp(P0.sy || 1, P1.sy || 1, e), pth.straight ? 1 : 1.12, Math.sin(PI * f)),
+        c: P0.c.map((v, k) => lerp(v, P1.c[k], e)), core: (P0.core || 0) * (1 - clamp(e / .25)) + (P1.core || 0) * clamp((e - .75) / .25), op: dop, glow: lerp(P0.glow ?? a.glow ?? 0, P1.glow ?? b.glow ?? 0, e), w };
+    };
+
+    // only the stop it's "yielding" to shows its real square; all the others stay hidden (the square *is* them)
+    let shownKey = null;
+    const ALL = {};
+    const show = x => {
+      const key = x === ALL ? '*' : x ? x.id : '';
+      if (key === shownKey) return; shownKey = key;
+      anchors.forEach(s => { const on = x === ALL || s === x; if (s.el) s.el.classList.toggle('bud-hide', !on); if (s.show) s.show(on); });
+    };
+
+    /* ---- draw it ---- */
+    const P = { x: 0, y: 0, s: 0, rz: 0, sx: 1, sy: 1, c: PAPER.slice(), core: 0, glow: 0 };
+    const V = { x: 0, y: 0 }, hist = [];
+    let mode = 'hide', raf = 0, lastT = 0, alive = 0, played = false, ret = null, lx0 = 0, ly0 = 0, sq1 = 1, sqv = 0, dbg = {}, pvx = 0, pvy = 0, pvs = 0;
     try { played = sessionStorage.getItem('pp-toy') === '1'; } catch (e) {}
-    const P = { x: 0, y: 0, s: 0, rx: 0, ry: 0, rz: 0, c: PAPER.slice(), core: 0, sq: 1, sqv: 0 };
-    let rdt = .016, lastRY = 0;
-    const off = { x: 0, y: 0, vx: 0, vy: 0, spin: 0 };
     const toy = { vx: 0, vy: 0, rest: 0, t: 0, flash: 0 };
-    const ptr = { x: 0, y: 0, hist: [], down: null, gx: 0, gy: 0 };
-    // the real squares stay hidden while the cube is out — the cube *is* them
-    let anchorsHidden = null;
-    const hideAnchors = on => {
-      if (on === anchorsHidden) return; anchorsHidden = on;
-      for (const k in EL) if (k !== 'mdot') EL[k]?.classList.toggle('bud-hide', on);   // the FAIL FAST dot is always there
-      if (window.__giverHide !== on) { window.__giverHide = on; window.__gvRedraw?.(); }
-      if (window.__vxHide !== on) { window.__vxHide = on; window.__vxRedraw?.(); }
-    };
-    const showReal = name => { EL[name]?.classList.remove('bud-hide'); anchorsHidden = null; };
-    const snap = a => Math.round(a / 90) * 90;                  // a flat square looks the same every quarter turn
-    // on the white pages (ABOUT / CONTACT) it doesn't fly around — it warps: folds into a line, blinks out, unfolds at the new spot
-    const lightAt = (x, y) => $$('.panel').some(p => { const r = p.getBoundingClientRect(); return x > r.left && x < r.right && y > r.top && y < r.bottom; });
-    let WP = null;
-    const warp = to => {
-      WP = { t0: performance.now(), to, from: { ...P, c: P.c.slice() }, arrived: false };
-      mode = 'warp'; F = null;
-    };
-    const go = (prev, to) => {
-      const T = pose(to);
-      if (to === 'mdot') { mode = 'dock'; F = null; Object.assign(P, T); P.ry = snap(P.ry); P.sq = 1; P.sqv = 0; hist.length = 0; return; }   // FAIL FAST.: it simply is that dot, no jump
-      if (prev === 'block' || lightAt(P.x, P.y) || lightAt(T.x, T.y)) warp(to); else fly(to);
-    };
-    const fly = to => {
-      const T = pose(to), d = Math.hypot(T.x - P.x, T.y - P.y);
-      F = { t0: performance.now(), dur: clamp(d / 1.5 + 480, 560, 1050), from: { ...P, c: P.c.slice() }, to, ry1: snap(P.ry) + (T.x >= P.x ? 360 : -360) };
-      P.sqv += 6;                                                     // a little stretch on take-off
-      mode = 'fly';
-    };
-    const pulse = () => {
-      const d = document.createElement('i'); d.className = 'b3-pulse'; document.body.appendChild(d);
-      const s = Math.max(12, P.s);
-      d.style.cssText = `width:${s}px;height:${s}px;left:${P.x - s / 2}px;top:${P.y - s / 2}px;border-color:rgb(${P.c.map(Math.round).join(',')});transform:rotate(${P.rz}deg)`;
-      d.animate([{ transform: `rotate(${P.rz}deg) scale(1)`, opacity: .9 }, { transform: `rotate(${P.rz + 45}deg) scale(2.6)`, opacity: 0 }], { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)' }).finished.then(() => d.remove());
-    };
-    const hist = [];
-    const render = () => {
-      const s = Math.max(0, P.s), fl = toy.flash;
-      const c = fl > 0 ? P.c.map((v, i) => lerp(v, BLUE[i], fl)) : P.c;
-      b3.style.setProperty('--s', s.toFixed(1) + 'px');
+    const render = (op, moving, dt) => {
+      const s = Math.max(0, P.s), fl = toy.flash, c = fl > 0 ? P.c.map((v, i) => lerp(v, BLUE[i], fl)) : P.c;
+      b3.style.opacity = op.toFixed(3);
+      b3.classList.toggle('off', op < .3);
+      b3.style.setProperty('--s', s.toFixed(2) + 'px');
       b3.style.setProperty('--c', `rgb(${c.map(v => Math.round(v)).join(',')})`);
       b3.style.setProperty('--core', P.core.toFixed(3));
-      const x = P.x + off.x, y = P.y + off.y;
-      // flat like every other square on the site: it rolls, squashes and stretches instead of tumbling in 3D
-      P.sqv += (-(P.sq - 1) * 420 - P.sqv * 16) * rdt; P.sq += P.sqv * rdt;
-      const vy = (y - lastRY) / Math.max(rdt, .001); lastRY = y;
-      const st = mode === 'dock' || mode === 'warp' ? 0 : clamp(Math.abs(vy) / 5000, 0, .22);
-      let sy = P.sq * (1 + st), sx = 1 / sy;
-      if (mode === 'warp') { sx = Math.max(.001, WP.sx); sy = WP.sy; }
-      b3.style.transform = `translate(${(x - s / 2).toFixed(1)}px, ${(y - s / 2).toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)}) rotate(${(P.rz + P.ry).toFixed(1)}deg)`;
-      // a short trail while it's moving fast
-      const moving = mode === 'fly' || mode === 'toy' || mode === 'drag';   // (no trail for a warp)
-      hist.unshift({ x, y, s, r: P.rz + P.ry, c }); hist.length = 12;
+      b3.style.setProperty('--glow', P.glow.toFixed(3));
+      // squash + stretch: a spring for bounces, and a stretch along the way it's moving
+      sqv += (-(sq1 - 1) * 420 - sqv * 16) * dt; sq1 += sqv * dt;
+      const vx = (P.x - lx0) / Math.max(dt, .001), vy = (P.y - ly0) / Math.max(dt, .001); lx0 = P.x; ly0 = P.y;
+      V.x = lerp(V.x, vx, .35); V.y = lerp(V.y, vy, .35);
+      const sp = Math.hypot(V.x, V.y), k = clamp(sp / 5200, 0, .26) * moving, th = Math.atan2(V.y, V.x) * 180 / PI;
+      b3.style.transform = `translate(${(P.x - s / 2).toFixed(1)}px,${(P.y - s / 2).toFixed(1)}px) rotate(${th.toFixed(1)}deg) scale(${(1 + k).toFixed(3)},${(1 / (1 + k)).toFixed(3)}) rotate(${(-th).toFixed(1)}deg) scale(${(P.sx / sq1).toFixed(3)},${(P.sy * sq1).toFixed(3)}) rotate(${P.rz.toFixed(1)}deg)`;
+      // a short trail when it's really moving
+      hist.unshift({ x: P.x, y: P.y, s, r: P.rz, c }); hist.length = 12;
+      const tr = op > .5 && (mode === 'toy' || mode === 'drag') && sp > 900;
       trail.forEach((t, i) => {
-        const q = hist[2 + i * 2];
-        if (!moving || !q) { t.style.opacity = 0; return; }
-        const z = q.s * (.8 - i * .12);
-        t.style.opacity = (.34 - i * .06).toFixed(2);
-        t.style.background = `rgb(${q.c.map(v => Math.round(v)).join(',')})`;
+        const h = hist[2 + i * 2];
+        if (!tr || !h) { t.style.opacity = 0; return; }
+        const z = h.s * (.8 - i * .12);
+        t.style.opacity = ((.32 - i * .06) * moving).toFixed(2);
+        t.style.background = `rgb(${h.c.map(v => Math.round(v)).join(',')})`;
         t.style.width = t.style.height = z.toFixed(1) + 'px';
-        t.style.transform = `translate(${(q.x - z / 2).toFixed(1)}px, ${(q.y - z / 2).toFixed(1)}px) rotate(${q.r.toFixed(0)}deg)`;
+        t.style.transform = `translate(${(h.x - z / 2).toFixed(1)}px,${(h.y - z / 2).toFixed(1)}px) rotate(${h.r.toFixed(0)}deg)`;
       });
-      b3.classList.toggle('hint', tgt === 'hero' && mode === 'dock' && !played);
     };
+    const copy = (T, e = 1) => {
+      if (e >= 1) { P.x = T.x; P.y = T.y; P.s = T.s; P.rz = T.rz; P.sx = T.sx || 1; P.sy = T.sy || 1; P.c = T.c.slice(); P.core = T.core || 0; P.glow = T.glow || 0; return; }
+      const F = ret.from;
+      P.x = lerp(F.x, T.x, e); P.y = lerp(F.y, T.y, e); P.s = lerp(F.s, T.s, e); P.rz = lerp(F.rz, T.rz, e);
+      P.sx = lerp(F.sx, T.sx || 1, e); P.sy = lerp(F.sy, T.sy || 1, e); P.c = F.c.map((v, i) => lerp(v, T.c[i], e)); P.core = lerp(F.core, T.core || 0, e); P.glow = lerp(F.glow, T.glow || 0, e);
+    };
+
+    /* ---- play with it ---- */
+    const ptr = { x: 0, y: 0, hist: [], down: null, gx: 0, gy: 0 };
     const startToy = (vx, vy) => {
-      mode = 'toy'; F = null; toy.vx = clamp(vx, -4200, 4200); toy.vy = clamp(vy, -4200, 4200); toy.rest = 0; toy.t = 0;
+      mode = 'toy'; toy.vx = clamp(vx, -4200, 4200); toy.vy = clamp(vy, -4200, 4200); toy.rest = 0; toy.t = 0;
       if (!played) { played = true; try { sessionStorage.setItem('pp-toy', '1'); } catch (e) {} }
       kick();
     };
     const runToy = dt => {
       const w = W(), h = H();
-      P.s = lerp(P.s, clamp(P.s, 26, 96), .15); P.core = lerp(P.core, 0, .1); P.c = P.c.map((v, i) => lerp(v, pose('park').c[i], .06));
+      P.s = lerp(P.s, clamp(P.s, 26, 96), .15); P.core = lerp(P.core, 0, .06); P.glow = lerp(P.glow, 0, .1); P.sx = lerp(P.sx, 1, .2); P.sy = lerp(P.sy, 1, .2);
       toy.flash = Math.max(0, toy.flash - dt * 1.6);
       if (mode === 'drag') {
-        const tx = ptr.x - ptr.gx, ty = ptr.y - ptr.gy, vx = (tx - P.x) / Math.max(dt, .001), vy = (ty - P.y) / Math.max(dt, .001);
-        P.x = tx; P.y = ty; P.ry += clamp(vx * .01, -15, 15);
+        const tx = ptr.x - ptr.gx, ty = ptr.y - ptr.gy, vx = (tx - P.x) / Math.max(dt, .001);
+        P.x = tx; P.y = ty; P.rz += clamp(vx * .01, -15, 15);
         return;
       }
       toy.t += dt;
@@ -2606,94 +3107,65 @@
         toy.vx *= Math.pow(.05, dt);
       }
       if (bump > 700) sound.play('clack');
-      if (bump > 300) P.sqv -= clamp(bump / 450, 0, 8);               // squash on every bounce
-      P.ry += toy.vx * dt * .25; P.rz = lerp(P.rz, 0, .05);
+      if (bump > 300) sqv -= clamp(bump / 450, 0, 8);                   // squash on every bounce
+      P.rz += toy.vx * dt * .25;
       toy.rest = P.y >= floor - .5 && Math.abs(toy.vx) < 40 ? toy.rest + dt : 0;
-      if (toy.rest > .35 || toy.t > 7) { const w2 = tgt === 'hide' ? 'park' : tgt; go(null, w2); }   // done playing — back to where it belongs
+      if (toy.rest > .35 || toy.t > 7) { ret = { t0: performance.now(), from: { ...P, c: P.c.slice() } }; mode = 'ret'; }   // done playing — back to its spot
     };
+
     const frame = now => {
       raf = 0;
-      const dt = Math.min(.05, lastT ? (now - lastT) / 1000 : .016); lastT = now; rdt = dt;
-      sv = lerp(sv, (scrollY - lastY) / Math.max(dt, .001), .2); lastY = scrollY;
-      let want = pick(); const yieldIt = want.endsWith('~'); if (yieldIt) want = want.slice(0, -1);   // '~' = something covers that spot: let the real square show there
-      if (want === 'hide') {
-        if (mode !== 'hide') { mode = 'hide'; tgt = 'hide'; F = null; b3.style.opacity = 0; trail.forEach(t => (t.style.opacity = 0)); hideAnchors(false); }
+      const dt = Math.min(.05, lastT ? (now - lastT) / 1000 : .016); lastT = now;
+      flushJobs();                                                     // everything else first, so the squares it follows are up to date
+      if (root.classList.contains('intro-on') || root.classList.contains('case-open') || (!sq.classList.contains('in') && scrollY < H() * .5)) {
+        if (mode !== 'hide') { mode = 'hide'; b3.style.opacity = 0; b3.classList.add('off'); trail.forEach(t => (t.style.opacity = 0)); show(ALL); }
         lastT = 0; return;
       }
-      hideAnchors(true);
+      if (mode === 'hide') { mode = 'track'; hist.length = 0; }
+      const y = scrollY, [i, f] = locate(y), s0 = stops[i];
+      let T = null, op = 1, yieldTo = null, moving = 0;
+      if (f <= 0) {
+        T = s0.pose();
+        if (T && T.glow === undefined) T.glow = s0.glow || 0;
+        if (s0.yieldIf && s0.yieldIf(y)) { op = 0; yieldTo = s0; }
+        if (s0.op) op *= clamp(s0.op());
+      } else {
+        const s1 = stops[i + 1];
+        T = travel(s0, s1, f, now);
+        if (s1.hid) op = 0; else { moving = T ? T.w : 0; op *= T ? T.op ?? 1 : 1; }
+        if (s1.path?.dive && op <= .02) yieldTo = s1;                   // it's gone into the hole: the block down there takes over
+      }
+      if (!T) T = { ...P, c: P.c.slice() };                            // nothing to measure right now: stay put
+      scenes.forEach(el => el.classList.toggle('away', !(f <= 0 && s0.scene === el)));
+      lis.forEach((li, k2) => li.classList.toggle('pt-away', s0.id === 'pt' + k2 && mode === 'track'));   // the bullet it's sitting on / just left is *it*
+      dbg = { id: s0.id, f: +f.toFixed(3), op: +op.toFixed(2), mode, n: stops.length };
       if (mode === 'drag' || mode === 'toy') {
-        tgt = want; b3.style.opacity = 1; runToy(dt); render(); raf = requestAnimationFrame(frame); return;
-      }
-      // GIVE: when the white block bursts, the cube bursts with it … and re-forms when THE WORK comes in
-      if (gone) {
-        if (want === 'giver') { gone = false; mode = 'dock'; tgt = 'giver'; Object.assign(P, pose('giver')); }
-        else if (work && work.getBoundingClientRect().top < H() * .55) { gone = false; tgt = 'park'; Object.assign(P, pose('park'), { s: 0 }); fly('park'); }
-        else { b3.style.opacity = 0; trail.forEach(t => (t.style.opacity = 0)); lastT = 0; return; }
-      }
-      if (want !== tgt) {
-        const prev = tgt; tgt = want;
-        if (prev === 'giver' && (window.__giver?.burst || 0) > 0) { gone = true; mode = 'gone'; b3.style.opacity = 0; lastT = 0; return; }
-        if (mode === 'hide') {                                 // coming back from hidden
-          if (want !== 'park') { mode = 'dock'; Object.assign(P, pose(want)); P.ry = snap(P.ry); }
-          else { Object.assign(P, pose('park'), { s: 0 }); fly('park'); }
-        } else go(prev, want);
-      }
-      b3.style.opacity = 1;
-      off.vx += (-off.x * 32 - off.vx * 7) * dt; off.vy += (-off.y * 32 - off.vy * 7) * dt;
-      off.x += off.vx * dt; off.y += off.vy * dt; off.spin *= Math.pow(.25, dt);
-      toy.flash = Math.max(0, toy.flash - dt * 1.6);
-      if (mode === 'warp') {
-        const t = (now - WP.t0) / 440;
-        if (t < .36) { const u = t / .36; Object.assign(P, { x: WP.from.x, y: WP.from.y }); WP.sx = 1 - eio(u); WP.sy = 1 + .9 * u; b3.style.opacity = 1; }
-        else if (t < .5) { b3.style.opacity = 0; }
-        else {
-          const u = clamp((t - .5) / .5), T = pose(WP.to), back = 1 + 2.2 * (u - 1) ** 3 + 1.2 * (u - 1) ** 2;   // unfolds with a little overshoot
-          Object.assign(P, { x: T.x, y: T.y, s: T.s, rz: T.rz, c: T.c, core: T.core }); P.ry = snap(P.ry);
-          if (!WP.arrived) { WP.arrived = true; }
-          WP.sx = back; WP.sy = 1.9 - .9 * back; b3.style.opacity = 1;
-          if (u >= 1) { mode = WP.to === 'park' ? 'park' : 'dock'; P.sq = 1; P.sqv = 0; }
-        }
-        render(); raf = requestAnimationFrame(frame); return;
-      }
-      if (mode === 'fly') {
-        const t = clamp((now - F.t0) / F.dur), e = eio(t), T = pose(F.to), A = F.from, w = W(), h = H();
-        const lift = Math.min(w, h) * (.18 + .12 * clamp(Math.hypot(T.x - A.x, T.y - A.y) / w));
-        const mx = (A.x + T.x) / 2, my = Math.min(A.y, T.y) - lift, u = 1 - e;
-        P.x = u * u * A.x + 2 * u * e * mx + e * e * T.x;
-        P.y = u * u * A.y + 2 * u * e * my + e * e * T.y;
-        P.s = Math.min(lerp(A.s, T.s, e) * (1 + 1.3 * Math.sin(PI * e)), Math.min(w, h) * .3);
-        P.ry = lerp(A.ry, F.ry1, e); P.rz = lerp(A.rz, T.rz, e);
-        P.c = A.c.map((v, i) => lerp(v, T.c[i], e)); P.core = lerp(A.core || 0, T.core || 0, e);
-        if (t >= 1) { F = null; P.ry = snap(P.ry); P.sq = 1; P.sqv = 0; if (tgt === 'park') mode = 'park'; else { mode = 'dock'; hist.length = 0; } }   // it just becomes the dot — no flash
-      } else if (mode === 'dock' && yieldIt) {
-        // covered (a circle / the zoom window / the stage edge is in front): the real square takes over for now
-        const T = pose(tgt); Object.assign(P, { x: T.x, y: T.y, s: T.s, rz: T.rz, c: T.c, core: T.core });
-        b3.style.opacity = 0; trail.forEach(t => (t.style.opacity = 0)); showReal(tgt);
+        show(null); runToy(dt); render(1, 1, dt);
         raf = requestAnimationFrame(frame); return;
-      } else if (mode === 'dock') {
-        const T = pose(tgt);
-        P.x = T.x; P.y = T.y; P.s = T.s; P.rz = T.rz; P.c = T.c; P.core = T.core;
-        P.ry = snap(P.ry); P.sq = 1; P.sqv = 0;
-      } else if (mode === 'park') {
-        const T = pose('park'), k = 1 - Math.pow(.02, dt);
-        P.x = lerp(P.x, T.x, k); P.y = lerp(P.y, T.y, k); P.s = lerp(P.s, T.s, k); P.rz = lerp(P.rz, 0, k); P.core = lerp(P.core, 0, k);
-        P.c = P.c.map((v, i) => lerp(v, T.c[i], k));
-        P.ry += dt * (clamp(sv, -3000, 3000) * .12 + off.spin);          // it rolls along as you scroll
-        if (Math.abs(sv) < 60 && off.spin < 30) P.ry = lerp(P.ry, snap(P.ry), 1 - Math.pow(.004, dt));   // … and settles flat when you stop
       }
-      render();
-      raf = requestAnimationFrame(frame);
+      if (mode === 'ret') {
+        const k = clamp((now - ret.t0) / 480), e = 1 - Math.pow(1 - k, 3);
+        copy(T, e); op = lerp(1, op, e); moving = Math.max(moving, 1 - k);
+        if (k >= 1) { mode = 'track'; ret = null; }
+      } else copy(T);
+      show(op > .02 ? null : yieldTo);
+      toy.flash = Math.max(0, toy.flash - dt * 1.6);
+      render(op, moving, dt);
+      b3.classList.toggle('hint', s0.id === 'hero' && f <= 0 && !played && mode === 'track');
+      const moved = Math.abs(P.x - pvx) + Math.abs(P.y - pvy) + Math.abs(P.s - pvs) > .02; pvx = P.x; pvy = P.y; pvs = P.s;
+      if (moving > .001 || now < alive || mode !== 'track' || moved || Math.abs(sq1 - 1) > .002) raf = requestAnimationFrame(frame); else lastT = 0;
     };
-    const kick = () => { if (!raf && !document.hidden) raf = requestAnimationFrame(frame); };
-    // ---- play with it ----
+    const kick = () => { alive = performance.now() + 1200; if (!raf && !document.hidden) raf = requestAnimationFrame(frame); };
+    window.__bud = () => dbg;
+    window.__budWin = () => stops.map((s, i) => [s.id, Math.round(A[i]), Math.round(B[i])]);
+
     hit.addEventListener('pointerdown', e => {
-      if (mode === 'hide' || mode === 'gone') return;
+      if (mode === 'hide' || +b3.style.opacity < .3) return;
       e.preventDefault(); e.stopPropagation();
       hit.setPointerCapture?.(e.pointerId);
-      ptr.x = e.clientX; ptr.y = e.clientY; ptr.gx = e.clientX - (P.x + off.x); ptr.gy = e.clientY - (P.y + off.y);
-      P.x += off.x; P.y += off.y; off.x = off.y = off.vx = off.vy = 0;
+      ptr.x = e.clientX; ptr.y = e.clientY; ptr.gx = e.clientX - P.x; ptr.gy = e.clientY - P.y;
       ptr.down = { x: e.clientX, y: e.clientY, t: performance.now() }; ptr.hist = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
-      mode = 'drag'; F = null; b3.classList.add('grab'); sound.play('pop');
+      mode = 'drag'; b3.classList.add('grab'); sound.play('pop');
       if (!played) { played = true; try { sessionStorage.setItem('pp-toy', '1'); } catch (e2) {} }
       kick();
     });
@@ -2706,35 +3178,38 @@
       if (mode !== 'drag') return;
       b3.classList.remove('grab');
       const now = performance.now(), d = ptr.down, moved = Math.hypot(e.clientX - d.x, e.clientY - d.y);
-      if (moved < 7 && now - d.t < 300) {                       // a click: it jumps and flips, with a silly sound
+      if (moved < 7 && now - d.t < 300) {                                // a click: it jumps and flips, with a silly sound
         toy.flash = 1; sound.play(SILLY[(Math.random() * SILLY.length) | 0]);
         startToy((Math.random() - .5) * 900, -1500 - Math.random() * 500);
         return;
       }
-      const h0 = ptr.hist.find(q => now - q.t < 90) || ptr.hist[0], dt = Math.max(16, now - h0.t) / 1000;
+      const h0 = ptr.hist.find(q2 => now - q2.t < 90) || ptr.hist[0], dt = Math.max(16, now - h0.t) / 1000;
       startToy((e.clientX - h0.x) / dt, (e.clientY - h0.y) / dt);
     };
     hit.addEventListener('pointerup', release);
-    hit.addEventListener('pointercancel', release);
-    // swat it: a fast swipe through the cube knocks it away
-    if (matchMedia('(hover: hover) and (pointer: fine)').matches) {
-      let lx = 0, ly = 0, lt = 0;
-      addEventListener('pointermove', e => {
-        const t = performance.now(), ddt = (t - lt) / 1000, vx = (e.clientX - lx) / Math.max(ddt, .001), vy = (e.clientY - ly) / Math.max(ddt, .001);
-        lx = e.clientX; ly = e.clientY; lt = t;
-        if (ddt > .1 || (mode !== 'park' && mode !== 'dock')) return;
-        const sp = Math.hypot(vx, vy), cx = P.x + off.x, cy = P.y + off.y;
-        if (sp > 1300 && Math.hypot(e.clientX - cx, e.clientY - cy) < Math.max(26, P.s * .75)) { sound.play('clack'); toy.flash = .6; startToy(vx * .7, vy * .7 - 400); }
-      }, { passive: true });
-    }
-    addEventListener('scroll', kick, { passive: true });
-    addEventListener('resize', kick);
-    addEventListener('pp-hit', e => { const d = e.detail || 1, w = W(), h = H(); if (mode === 'park') { off.vx -= w * 3.2 * d; off.vy -= h * 2.2 * d; off.spin += 1400 * d; } kick(); });
+    hit.addEventListener('pointercancel', e => { if (mode === 'drag') { b3.classList.remove('grab'); ret = { t0: performance.now(), from: { ...P, c: P.c.slice() } }; mode = 'ret'; kick(); } });
+    // swat it: a fast swipe through it knocks it away
+    const fineP = matchMedia('(hover: hover) and (pointer: fine)').matches;
+    let lx = 0, ly = 0, lt = 0;
+    addEventListener('pointermove', e => {
+      mx = e.clientX; my = e.clientY; kick();
+      if (!fineP) return;
+      const t = performance.now(), ddt = (t - lt) / 1000, vx = (e.clientX - lx) / Math.max(ddt, .001), vy = (e.clientY - ly) / Math.max(ddt, .001);
+      lx = e.clientX; ly = e.clientY; lt = t;
+      if (ddt > .1 || mode !== 'track' || +b3.style.opacity < .6) return;
+      if (Math.hypot(vx, vy) > 1300 && Math.hypot(e.clientX - P.x, e.clientY - P.y) < Math.max(26, P.s * .75)) { sound.play('clack'); toy.flash = .6; startToy(vx * .7, vy * .7 - 400); }
+    }, { passive: true });
+    let lt2 = 0, lt3 = 0; const relayout = () => { clearTimeout(lt2); lt2 = setTimeout(layout, 120); };
+    // sections below render lazily (their real size arrives as you get close), so measure again whenever you pause
+    addEventListener('scroll', () => { kick(); clearTimeout(lt3); lt3 = setTimeout(layout, 220); }, { passive: true });
+    addEventListener('resize', relayout); addEventListener('load', layout); addEventListener('pp-layout', relayout);
+    document.fonts?.ready.then(layout);
+    new ResizeObserver(relayout).observe(document.body);
     new MutationObserver(kick).observe(root, { attributes: true, attributeFilter: ['class'] });
     new MutationObserver(kick).observe(sq, { attributes: true, attributeFilter: ['class'] });
     if (pst) new MutationObserver(kick).observe(pst, { attributes: true, attributeFilter: ['class'] });
     document.addEventListener('visibilitychange', () => { lastT = 0; kick(); });
-    kick();
+    layout();
   })();
 
   // HOME: watch the intro again (no need to reload by hand)
@@ -2785,7 +3260,7 @@
         blk.style.opacity = clamp((out - .3) / .12).toFixed(3);
       } else blk.style.opacity = 0;
     };
-    addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(upd); } }, { passive: true });
+    addEventListener('scroll', scrollJob(upd), { passive: true });
     addEventListener('resize', () => { key = ''; upd(); });
     upd();
   })();
@@ -2808,7 +3283,7 @@
       pn.style.setProperty('--pk', Math.max(0, Math.min(1, (e - .15) / .45)).toFixed(3));
       pn.style.setProperty('--po', Math.max(0, Math.min(1, (e - .55) / .4)).toFixed(3));
     };
-    addEventListener('scroll', () => { if (!tk) { tk = true; requestAnimationFrame(upd); } }, { passive: true });
+    addEventListener('scroll', scrollJob(upd), { passive: true });
     addEventListener('resize', () => { last = -1; upd(); });
     upd();
   })();
