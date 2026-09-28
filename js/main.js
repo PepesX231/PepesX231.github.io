@@ -33,16 +33,27 @@
   /* ---------- SOUND: tiny synthesized effects only (no music). On by default; browsers only let audio start after the
                   visitor's first click/tap/key, so we quietly unlock it then. Corner switch turns it off. ---------- */
   const sound = (() => {
-    let on = true, ctx = null, master = null;
+    let on = true, ctx = null, master = null, NB = null;
     try { if (localStorage.getItem('pp-sound') === '0') on = false; } catch (e) {}
     const ac = () => {
-      if (!ctx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; ctx = new C(); master = ctx.createGain(); master.gain.value = .55; master.connect(ctx.destination); }
+      if (!ctx) {
+        const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; ctx = new C();
+        master = ctx.createGain(); master.gain.value = .42;
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000; lp.Q.value = .5;
+        const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.attack.value = .004; comp.release.value = .2;
+        // a small room: a short, soft reverb so nothing sounds dry and "beepy"
+        const len = Math.ceil(ctx.sampleRate * 1.1), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+        for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+        const rev = ctx.createConvolver(); rev.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .22;
+        master.connect(lp); lp.connect(comp); lp.connect(rev); rev.connect(wet).connect(comp); comp.connect(ctx.destination);
+        const nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1; NB = nb;
+      }
       if (ctx.state === 'suspended') ctx.resume();
       return ctx.state === 'running' ? ctx : null;
     };
     const unlock = () => { ac(); ['pointerdown', 'keydown', 'touchend'].forEach(e => removeEventListener(e, unlock, true)); };
     ['pointerdown', 'keydown', 'touchend'].forEach(e => addEventListener(e, unlock, true));
-    const noise = (dur) => { const b = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; const n = ctx.createBufferSource(); n.buffer = b; return n; };
+    const noise = () => { const n = ctx.createBufferSource(); n.buffer = NB; n.loop = true; return n; };
     const tone = (f, dur, { type = 'sine', gain = .2, f2 = null, at = 0 } = {}) => {
       const t = ctx.currentTime + at, o = ctx.createOscillator(), g = ctx.createGain();
       o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
@@ -50,29 +61,34 @@
       o.connect(g).connect(master); o.start(t); o.stop(t + dur + .05);
     };
     const hiss = (dur, { gain = .2, from = 800, to = 4000, q = .8, at = 0, type = 'bandpass', attack = .3 } = {}) => {
-      const t = ctx.currentTime + at, n = noise(dur), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      const t = ctx.currentTime + at, n = noise(), f = ctx.createBiquadFilter(), g = ctx.createGain();
       f.type = type; f.Q.value = q; f.frequency.setValueAtTime(from, t); f.frequency.exponentialRampToValueAtTime(to, t + dur);
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + dur * attack); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-      n.connect(f).connect(g).connect(master); n.start(t); n.stop(t + dur);
+      n.connect(f).connect(g).connect(master); n.start(t, Math.random() * 1.5); n.stop(t + dur);
     };
     const fx = {
-      tick(k = 0) { tone(1800 + Math.random() * 500 - k * 6, .05, { type: 'triangle', gain: .045 }); },
-      whoosh(d = 1.6) { hiss(d, { gain: .16, from: 300, to: 5000, q: .7, attack: .75 }); },
-      impact() { tone(120, .6, { gain: .5, f2: 38 }); hiss(.35, { gain: .22, from: 2500, to: 300, q: .5, attack: .02, type: 'lowpass' }); tone(880, 1.2, { type: 'sine', gain: .05, at: .02 }); },
-      crash() { hiss(.25, { gain: .28, from: 4000, to: 600, q: .6, attack: .02 }); tone(90, .3, { gain: .3, f2: 50 }); },
-      clack() { tone(420 + Math.random() * 80, .06, { type: 'square', gain: .025 }); },
-      pop() { tone(660, .12, { gain: .12, f2: 990 }); tone(1320, .25, { gain: .04, at: .05 }); },
-      open() { hiss(.35, { gain: .08, from: 600, to: 3000, attack: .6 }); tone(520, .18, { gain: .06, f2: 780 }); },
-      close() { hiss(.3, { gain: .07, from: 3000, to: 500, attack: .2 }); },
+      // a soft key tap
+      tick(k = 0) { tone(1500 + Math.random() * 200 - k * 3, .035, { gain: .03 }); hiss(.03, { gain: .02, from: 3000, to: 2000, q: 1.2, attack: .05 }); },
+      whoosh(d = 1.6) { hiss(d, { gain: .09, from: 250, to: 2600, q: .5, attack: .7 }); },
+      // a deep, round thud with a bit of room — no ringing beep
+      impact() { tone(78, .9, { gain: .55, f2: 32 }); tone(160, .25, { gain: .18, f2: 60 }); hiss(.5, { gain: .3, from: 900, to: 90, q: .4, attack: .01, type: 'lowpass' }); },
+      // breaking glass: a dull knock + a few small glassy tinkles
+      crash() { tone(95, .35, { gain: .28, f2: 45 }); hiss(.22, { gain: .1, from: 5000, to: 1800, q: .7, attack: .02, type: 'highpass' });
+        for (let i = 0; i < 5; i++) tone(2400 + Math.random() * 2600, .18 + Math.random() * .2, { gain: .018, at: .02 + i * .045 + Math.random() * .03 }); },
+      // a wooden "tok" instead of a square-wave click
+      clack() { tone(560 + Math.random() * 60, .07, { gain: .09, f2: 330 }); hiss(.025, { gain: .03, from: 2200, to: 1500, q: 2, attack: .05 }); },
+      pop() { tone(520, .1, { gain: .12, f2: 880 }); tone(1040, .16, { gain: .025, at: .04 }); },
+      open() { hiss(.3, { gain: .05, from: 500, to: 2200, attack: .6, q: .5 }); tone(520, .16, { gain: .05, f2: 700 }); },
+      close() { hiss(.26, { gain: .045, from: 2200, to: 450, attack: .2, q: .5 }); },
       // silly ones for the badge
       boing() { const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(), l = ctx.createOscillator(), lg = ctx.createGain();
         o.type = 'sine'; o.frequency.setValueAtTime(420, t); o.frequency.exponentialRampToValueAtTime(90, t + .55);
-        l.frequency.value = 22; lg.gain.setValueAtTime(60, t); lg.gain.exponentialRampToValueAtTime(1, t + .55); l.connect(lg).connect(o.frequency);
-        g.gain.setValueAtTime(.001, t); g.gain.linearRampToValueAtTime(.35, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + .6);
+        l.frequency.value = 22; lg.gain.setValueAtTime(40, t); lg.gain.exponentialRampToValueAtTime(1, t + .55); l.connect(lg).connect(o.frequency);
+        g.gain.setValueAtTime(.001, t); g.gain.linearRampToValueAtTime(.22, t + .01); g.gain.exponentialRampToValueAtTime(.0001, t + .6);
         o.connect(g).connect(master); o.start(t); l.start(t); o.stop(t + .65); l.stop(t + .65); },
-      slide() { tone(260, .5, { type: 'sine', gain: .22, f2: 1300 }); },
-      squeak() { tone(900, .08, { type: 'triangle', gain: .2, f2: 1900 }); tone(1900, .1, { type: 'triangle', gain: .16, f2: 1100, at: .08 }); },
-      bloop() { tone(300, .12, { gain: .3, f2: 900 }); tone(700, .14, { gain: .22, f2: 500, at: .1 }); },
+      slide() { tone(260, .45, { type: 'sine', gain: .14, f2: 1100 }); },
+      squeak() { tone(900, .08, { gain: .14, f2: 1700 }); tone(1700, .1, { gain: .1, f2: 1100, at: .08 }); },
+      bloop() { tone(300, .12, { gain: .2, f2: 900 }); tone(700, .14, { gain: .14, f2: 500, at: .1 }); },
       quack() { [0, .17].forEach(at => { const t = ctx.currentTime + at, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
         o.type = 'sawtooth'; o.frequency.setValueAtTime(620, t); o.frequency.exponentialRampToValueAtTime(420, t + .14);
         f.type = 'bandpass'; f.frequency.value = 1300; f.Q.value = 3;
@@ -1419,14 +1435,14 @@
         }
         return { V, T };
       };
-      const FG = grid(-90, 90, -150, 80, LITE ? 18 : 24, LITE ? 20 : 28, fgH, 4.5);
-      const FAR = grid(-950, 950, 240, 1050, LITE ? 26 : 38, LITE ? 13 : 19, farH, 18);
+      const FG = grid(-90, 90, -150, 80, LITE ? 15 : 20, LITE ? 16 : 22, fgH, 5);
+      const FAR = grid(-950, 950, 240, 1050, LITE ? 22 : 30, LITE ? 11 : 15, farH, 20);
       const top = FG.V.reduce((a, v) => (v[1] > a[1] && Math.abs(v[0]) < 20 && Math.abs(v[2]) < 20 ? v : a), [0, -1, 0]);
       const CUBE = [top[0], top[1] - .45, top[2]], BIG = [-190, farH(-190, 560), 560];   // it stands on the highest point of its mountain
       const L = (() => { const v = [.72, .55, .22], l = Math.hypot(...v); return v.map(a => a / l); })();   // the light: high, from the right
       const CLOUD = 44;                                                       // the top of the cloud sea (our summit is ~70)
       const CL = [];
-      for (let k2 = 0; k2 < (LITE ? 44 : 76); k2++) {
+      for (let k2 = 0; k2 < (LITE ? 30 : 48); k2++) {
         const far = k2 % 3 !== 0, z = far ? 120 + rnd() * 900 : -120 + rnd() * 230, x = (rnd() - .5) * (far ? 1900 : 260);
         if (!far && Math.abs(x) < 18 && z > -30 && z < 30) continue;
         CL.push([x, CLOUD - 6 - rnd() * 22 + (rnd() < .12 ? 30 : 0), z, far ? 60 + rnd() * 110 : 16 + rnd() * 26, .25 + rnd() * .4]);
@@ -1460,7 +1476,7 @@
       });
       let W2 = 0, H2 = 0, last = '', cubeOn = true, CB = null;
       const CBW = 300, CBH = 240;                                             // the block's own little canvas, moved to wherever it is
-      const size = () => { const r = el.getBoundingClientRect(), d = LITE ? .5 : r.width > 1100 ? .5 : r.width > 700 ? .66 : .9, d2 = DPR(1.5);
+      const size = () => { const r = el.getBoundingClientRect(), d = LITE ? .42 : r.width > 1100 ? .44 : r.width > 700 ? .6 : .8, d2 = DPR(1.5);
         W2 = r.width; H2 = r.height; cv.width = Math.round(W2 * d); cv.height = Math.round(H2 * d); cv._d = d; cv2.width = Math.round(CBW * d2); cv2.height = Math.round(CBH * d2); cv2._d = d2; CB = null; last = ''; };
       addEventListener('resize', size);
       // the block: a soft white 3D cube with rounded edges, lit from the right like the mountains, its shadow on the rock
@@ -1504,7 +1520,7 @@
         CB = [Math.min(x0, sx - sr) - pad, y0 - pad, Math.max(x1, sx + sr) - Math.min(x0, sx - sr) + pad * 2, Math.max(y1, sy + sr * .32) - y0 + pad * 2];
         return [(x0 + x1) / 2, (y0 + y1) / 2, px];
       };
-      let tR = 0, tC = 0, cR = -1, cC = 0, raf = 0, lt = 0;
+      let tR = 0, tC = 0, cR = -1, cC = 0, vR = 0, vC = 0, raf = 0, lt = 0;
       const draw = (rise, c) => {
         if (!W2) size();
         const key = rise.toFixed(4) + c.toFixed(4) + cubeOn; if (key === last) return; last = key;
@@ -1523,12 +1539,12 @@
           const x1 = x * cy2 - z * sy2, z1 = x * sy2 + z * cy2, y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
           return [W2 / 2 + f * x1 / z2, H2 / 2 - f * y2 / z2, z2];
         };
-        for (let it = 0; it < 16; it++) {                                        // keep the square above the words and the big peak in frame
-          pitch = tc - Math.atan((H2 / 2 - Yc) / f); cp = Math.cos(pitch); sp = Math.sin(pitch);
-          const b = proj(bigT);
-          if (b[1] >= H2 * .1 && b[0] >= W2 * .06 && b[0] <= W2 * .94) break;
-          f *= .92;
-        }
+        // keep the square above the words and the big peak in frame: the widest zoom that still fits, found smoothly
+        // (a continuous search — stepping the zoom made it jump)
+        const aim = ff => { pitch = tc - Math.atan((H2 / 2 - Yc) / ff); cp = Math.cos(pitch); sp = Math.sin(pitch); f = ff; };
+        const fits = ff => { aim(ff); const b = proj(bigT); return b[2] > 0 && b[1] >= H2 * .1 && b[0] >= W2 * .06 && b[0] <= W2 * .94; };
+        const f0 = f;
+        if (!fits(f0)) { let lo = f0 * .15, hi = f0; for (let it = 0; it < 22; it++) { const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; } aim(lo); }
         g.setTransform(d, 0, 0, d, 0, 0);
         const haze = [44, 60, 88], cloudC = [122, 140, 170];
         // sky: deep blue up top, hazy near the horizon, a low sun-glow up to the right
@@ -1602,16 +1618,18 @@
       const tick = now => {
         raf = 0;
         const dt = lt ? Math.min(.05, (now - lt) / 1000) : .016; lt = now;
-        const k = 1 - Math.exp(-dt * 8);
-        cR += (tR - cR) * k; cC += (tC - cC) * k;
-        if (Math.abs(tR - cR) < 2e-4 && Math.abs(tC - cC) < 2e-4) { cR = tR; cC = tC; }
+        // a soft spring (no sudden starts or stops): it eases into motion and eases out when you stop scrolling
+        const K = 42, D = 2 * Math.sqrt(K);
+        vR += ((tR - cR) * K - vR * D) * dt; vC += ((tC - cC) * K - vC * D) * dt;
+        cR += vR * dt; cC += vC * dt;
+        if (Math.abs(tR - cR) < 1e-4 && Math.abs(tC - cC) < 1e-4 && Math.abs(vC) < 1e-3 && Math.abs(vR) < 1e-3) { cR = tR; cC = tC; vR = vC = 0; }
         draw(cR, cC);
         if (cR !== tR || cC !== tC) raf = requestAnimationFrame(tick); else lt = 0;
       };
       window.__mtnCube = on => { if (cubeOn !== on) { cubeOn = on; last = ''; draw(cR, cC); } };
       return (rise, c) => {
         tR = rise; tC = c;
-        if (cR < 0 || Math.abs(tC - cC) > .5) { cR = tR; cC = tC; draw(cR, cC); return; }   // first time / a big jump: no glide
+        if (cR < 0 || Math.abs(tC - cC) > .5) { cR = tR; cC = tC; vR = vC = 0; draw(cR, cC); return; }   // first time / a big jump: no glide
         if (!raf) raf = requestAnimationFrame(tick);
       };
     });
